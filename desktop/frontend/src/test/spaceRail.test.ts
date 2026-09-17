@@ -106,15 +106,16 @@ describe('walking into a project from the rail', () => {
     expect(cockpit.spaceHistory).toEqual([])
   })
 
-  // But + and Ctrl+N inside a project are not "leave the project" (owner,
-  // 13 ก.ย.): the new chat is filed in the same folder and the list stays.
-  it('keeps the list when + is pressed inside the project', async () => {
+  // The chat heading is a sibling of Projects now. Its pencil means a general
+  // chat everywhere; the folder row is the separate, explicit way to start a
+  // chat inside a project.
+  it('leaves the project when new chat is pressed inside it', async () => {
     cockpit.space = 'Aetox โพสต์'
     await refreshSpaceHistory()
 
     await newSession()
 
-    expect(cockpit.space).toBe('Aetox โพสต์')
-    expect(cockpit.spaceHistory.length).toBeGreaterThan(0)
+    expect(cockpit.space).toBe('')
+    expect(cockpit.spaceHistory).toEqual([])
   })
 })

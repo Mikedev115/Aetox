@@ -8,20 +8,16 @@
 // done, on the same terms mcpShelf.ts sets for servers. Nothing here was
 // invented to fill a card.
 //
-// **Where these came from.** The owner pointed at a YouTube channel
-// (youtube.com/@MilerDev) and asked for the skills it covers. Three of its
-// videos are about skills from one repository — /wayfinder, /grill-with-docs
-// with /plan, and "ของดีจาก AIHero" (AIHero is Matt Pocock's) — and that
-// repository is the first entry below. The channel's SEO video and its
-// agentic-engineering videos name no repository on screen that could be read
-// from the page, so the other two entries answer the topic rather than claim
-// to be the exact thing shown; each says so in its own note. The video
-// descriptions carry only sponsor and merchandise links, and YouTube refused
-// the caption tracks, so there was no way to confirm further without watching.
+// **Where these came from.** The first two community packs were curated from
+// the owner's requested topics (long-running engineering work and marketing).
+// The vendor packs added on 2026-09-17 come from their publishers' own docs
+// and repositories: Replicate, Prisma and Dodo Payments. An official name is
+// not enough by itself; each pack still has to pass the same install and
+// overlap checks below.
 //
 // **The bar, which is mcpShelf.ts's bar with one word changed.**
 //
-//   1. **It teaches Aetox a job its own 25 bundled skills do not cover.** A
+//   1. **It teaches Aetox a job its own 44 bundled skills do not cover.** A
 //      pack that repeats aetox-code-review or aetox-design is a second copy of
 //      an answer the machine already gives, and the user pays for the
 //      confusion of two.
@@ -70,23 +66,80 @@ export interface SkillPreset {
 }
 
 export const SKILL_PRESETS: SkillPreset[] = [
+  // Replicate explicitly publishes skills and MCP as complementary pieces:
+  // MCP calls the API, while these teach model selection, trade-offs and
+  // prompting. Measured 2026-09-17: 7 skills, 7 files, 62 KB. Every skill is
+  // one markdown file, so there is no setup script or private launcher for the
+  // installer to miss. build-models and publish-models naturally use Cog when
+  // that is the user's task; the remaining five need no Cog installation.
+  {
+    name: 'replicate/skills',
+    repo: 'https://github.com/replicate/skills',
+    desc: 'Official model discovery, comparison, execution and image/video prompting skills from Replicate',
+    why: 'The Replicate MCP gives Aetox hands on the API; it does not teach which model fits a job, how cost and speed compare, or how to prompt image and video models consistently. This pack supplies that missing judgement and the build/publish workflow for custom models.',
+    installs: [
+      'build-models', 'compare-models', 'find-models', 'prompt-images',
+      'prompt-videos', 'publish-models', 'run-models',
+    ],
+    kb: 62,
+    licence: 'Apache-2.0',
+    verifiedAt: '2026-09-17',
+  },
+
+  // Prisma's own current reference, including the v7 break and the special
+  // MongoDB path. Measured 2026-09-17: 9 skills, 71 files, 299 KB. The extra
+  // files are references and examples inside their skill folders; no pack
+  // installer or repository-local command is required.
+  {
+    name: 'prisma/skills',
+    repo: 'https://github.com/prisma/skills',
+    desc: 'Official Prisma ORM skills for schema work, Client APIs, database setup, adapters and upgrades',
+    why: 'Aetox can design and tune a database, but its bundled skills do not carry Prisma\'s current CLI, Client API, driver-adapter contracts or the v6-to-v7 and MongoDB migration decisions. The Prisma MCP can operate on data; this pack teaches the code and migration work around it.',
+    installs: [
+      'prisma-cli', 'prisma-client-api', 'prisma-compute', 'prisma-database-setup',
+      'prisma-driver-adapter-implementation', 'prisma-mongodb-upgrade', 'prisma-postgres',
+      'prisma-postgres-setup', 'prisma-upgrade-v7',
+    ],
+    kb: 299,
+    licence: 'MIT',
+    verifiedAt: '2026-09-17',
+  },
+
+  // Dodo's examples are checked against its real TypeScript, Go and Python
+  // SDKs in the publisher's CI. Measured 2026-09-17: 17 skills, 17 files,
+  // 268 KB. They are prose and compile-checked examples only; the packages a
+  // skill asks for are the application's Dodo SDKs, not a hidden skill runner.
+  {
+    name: 'dodopayments/skills',
+    repo: 'https://github.com/dodopayments/skills',
+    desc: 'Official payment, subscription, billing, checkout and webhook integration skills from Dodo Payments',
+    why: 'Aetox already knows documents, Thai tax facts and accounting checks; it does not know how to implement checkout, subscriptions, usage or credit billing, proration, disputes and signed webhooks in an application. The Dodo MCP manages merchant data, while these skills cover the integration code and test-to-live path.',
+    installs: [
+      'better-auth-integration', 'billing-sdk', 'checkout-integration', 'credit-based-billing',
+      'customer-management', 'discounts-and-promotions', 'dodo-best-practices',
+      'framework-adapters', 'license-keys', 'localized-pricing', 'mobile-checkout',
+      'product-catalog-management', 'refunds-and-disputes', 'subscription-integration',
+      'testing-and-go-live', 'usage-based-billing', 'webhook-integration',
+    ],
+    kb: 268,
+    licence: 'MIT',
+    verifiedAt: '2026-09-17',
+  },
+
   // The one the channel actually names. /wayfinder got its own video, so did
   // /grill-with-docs beside /plan, and the "AIHero" video is the same author's
   // material again — three videos, one repository.
   //
-  // Measured 2026-09-05 over the real tree: 37 skills, 100 files, 90 KB. It is
-  // the smallest pack here by a wide margin because it is prose and nothing
-  // else — no scripts, no assets, no launcher — which is also why rule 2 is
+  // Measured 2026-09-17 over the real tree: 37 skills, 100 files, 245 KB. It
+  // is prose and references only — no launcher — which is also why rule 2 is
   // not in question for it.
   //
-  // Rule 1 is the interesting part, because two of the 37 do overlap:
-  // `code-review` and `diagnosing-bugs` sit next to aetox-code-review and
-  // aetox-debug. They are not why this is here. `wayfinder` plans work too big
-  // for one session as a map of decision tickets on the repo's issue tracker,
-  // and `grilling` / `grill-with-docs` interrogate a plan until it is sharp
-  // and leave ADRs behind. Aetox has aetox-architect, which is knowledge about
-  // architecture, and nothing at all that runs a planning process across
-  // sessions. That is the gap.
+  // Rule 1 is the interesting part because much of the pack now overlaps the
+  // bundled forge/debug/review/grill/spec/slice workflow. It remains for the
+  // part Aetox still does not have: `wayfinder` externalises an unresolved
+  // decision tree as issue-tracker tickets so several sessions can advance it
+  // independently. Aetox can run a long plan, but it does not create or work
+  // that durable decision map.
   //
   // Worth knowing before pressing: 6 of the 37 come from the repository's own
   // `in-progress/` folder and are half-finished by their author's own
@@ -97,7 +150,7 @@ export const SKILL_PRESETS: SkillPreset[] = [
     name: 'mattpocock/skills',
     repo: 'https://github.com/mattpocock/skills',
     desc: 'Planning and interrogation skills for real engineering work, including /wayfinder and /grill-with-docs',
-    why: 'Aetox can design and review, and it has no process for work too big to hold in one session. wayfinder charts that work as decision tickets on the repo\'s issue tracker and resolves them one at a time; grilling and grill-with-docs interrogate a plan until nothing is left to decide, writing the ADRs as they go. Nothing bundled with Aetox does either.',
+    why: 'Aetox already covers most of this pack\'s planning, review, debugging and implementation workflow. The reason to install it is wayfinder: it charts work too big for one session as a durable tree of decision tickets on the repository\'s issue tracker and resolves that map one decision at a time. Nothing bundled externalises long work that way.',
     installs: [
       'ask-matt', 'claude-handoff', 'code-review', 'codebase-design', 'diagnosing-bugs',
       'domain-modeling', 'git-guardrails-claude-code', 'grill-me', 'grill-with-docs', 'grilling',
@@ -108,9 +161,9 @@ export const SKILL_PRESETS: SkillPreset[] = [
       'wayfinder', 'wizard', 'writing-beats', 'writing-for-agents', 'writing-fragments',
       'writing-shape',
     ],
-    kb: 90,
+    kb: 245,
     licence: 'MIT',
-    verifiedAt: '2026-09-05',
+    verifiedAt: '2026-09-17',
   },
 
   // The channel's SEO video ("SEO Skill ของดี! ทำเว็บให้โหลดไว + SEO ดีขึ้น")
@@ -127,14 +180,14 @@ export const SKILL_PRESETS: SkillPreset[] = [
   // shape for this button.
   //
   // This one is prose and templates only, so it installs and works. Measured
-  // 2026-09-05: 50 skills, 279 files, 1.9 MB. Its `seo-audit`,
+  // 2026-09-17: 50 skills, 279 files, 2.5 MB. Its `seo-audit`,
   // `programmatic-seo`, `schema`, `ai-seo` and `site-architecture` cover the
   // video's ground; the other 45 are the rest of a marketing department.
   {
     name: 'coreyhaines31/marketingskills',
     repo: 'https://github.com/coreyhaines31/marketingskills',
     desc: 'SEO, conversion, copywriting, pricing and growth — a marketing department as skills',
-    why: 'Aetox builds the site and has never had a word to say about whether anyone finds it. There is no SEO, copywriting, pricing, conversion or analytics skill among the 25 bundled — the whole category is missing, and this is the one pack that fills it without needing a command Aetox cannot install.',
+    why: 'Aetox builds the site and has never had a word to say about whether anyone finds it. There is no SEO, copywriting, pricing, conversion or analytics skill among the 44 bundled — the whole category is missing, and this is the one pack that fills it without needing a command Aetox cannot install.',
     installs: [
       'ab-testing', 'ad-creative', 'ads', 'ai-seo', 'analytics', 'aso', 'attribution',
       'churn-prevention', 'co-marketing', 'cold-email', 'community-marketing',
@@ -146,9 +199,9 @@ export const SKILL_PRESETS: SkillPreset[] = [
       'prospecting', 'public-relations', 'referrals', 'revops', 'sales-enablement', 'schema',
       'seo-audit', 'signup', 'site-architecture', 'sms', 'social', 'video',
     ],
-    kb: 1931,
+    kb: 2596,
     licence: 'MIT',
-    verifiedAt: '2026-09-05',
+    verifiedAt: '2026-09-17',
   },
 ]
 
@@ -189,3 +242,14 @@ export const SKILL_PRESETS: SkillPreset[] = [
 //   - Quality-Max/free-qa-skills — clean, small, and 9 stars on 2026-09-05.
 //     Not a reason to refuse it, only a reason not to be the one to put it in
 //     front of everybody yet.
+//   - cloudflare/skills — official and useful, but the measured 2026-09-17
+//     tree is 14 skills / 346 files. The current installer fetches every raw
+//     file sequentially under one 60-second request; putting this on the shelf
+//     would advertise a button likely to time out. Reconsider after archive or
+//     concurrent fetching lands.
+//   - microsoft/skills — official, but its 175 skills live under
+//     `.github/skills`. Aetox deliberately ignores dot-directories as repo
+//     metadata, so the current installer correctly finds no installable skill.
+//   - openai/skills — deprecated by its owner in favour of OpenAI Plugins, and
+//     its curated/system folders are dot-directories the Aetox installer does
+//     not treat as published skill material.

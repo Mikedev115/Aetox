@@ -151,7 +151,7 @@ export const SessionSpend = vi.fn(async (_id: string) => ({
 }))
 export const GetRepoMapGraph = vi.fn(async (_maxNodes: number) => ({ focused: false, nodes: [], edges: [], totalFiles: 0 }))
 const modelInfo = () => ({
-  provider: 'aetox', modelName: 'test', thinkLevel: '', approval: 'ask',
+  provider: 'aetox', modelName: 'test', thinkLevel: '', serviceTier: '', approval: 'ask',
   providers: [], models: [], thinkLevels: [], hasKey: true, status: '', wireFormat: '',
 })
 export const GetModelInfo = vi.fn(async () => modelInfo())
@@ -283,6 +283,7 @@ export const FetchAgentBrief = str()
 export const ListIdentityFiles = arr()
 export const ListMCPServers = arr()
 export const ListModelsForProvider = arr()
+export const ServiceTiersFor = arr()
 export const ListSessions = arr()
 export const ListTaskChips = arr()
 export const BackgroundTasks = arr()
@@ -363,6 +364,7 @@ export const SetSpeechEngine = noop()
 export const ListTTSEngines = arr()
 export const SetTTSEngine = noop()
 export const ListTTSVoices = arr()
+export const RefreshTTSVoices = arr()
 export const SetTTSVoice = noop()
 export const TTSStatus = str()
 export const InstallVoiceEngine = noop()
@@ -395,6 +397,33 @@ export const SpeechPlaying = noop()
 export const TranscribeMicAudio = str()
 export const LoadSession = noop()
 export const LoadSessionAnyProject = noop()
+// Production returns this snapshot from one backend call. The test double is
+// intentionally assembled through the older granular mocks: existing tests
+// that customize a transcript, desk or undo list keep describing the same
+// state, while tests for the optimized door can assert the one OpenSession
+// call directly.
+export const OpenSession = vi.fn(async (id: string, filter: any, anyProject: boolean) => {
+  const messages = await (anyProject ? LoadSessionAnyProject(id) : LoadSession(id))
+  const currentId = (await CurrentSessionID()) || id
+  const project: any = await GetProjectStatus()
+  const model: any = await GetModelInfo()
+  const space = await CurrentSpace()
+  const history = await ListSessionsForDoor(filter)
+  return {
+    messages: messages ?? [], currentId,
+    project: { ...project, path: project?.path ?? project?.root ?? '' },
+    model: { ...model, approvalMode: model?.approvalMode ?? model?.approval ?? 'ask' },
+    desk: await SessionMode(currentId), agent: await SessionAgent(currentId),
+    team: await SessionTeam(currentId), space, transport: '', stance: await Stance(),
+    stances: await Stances(),
+    spaceSessions: space ? await SessionsInSpace(space) : [],
+    sessions: await ListSessions(), history,
+    historyFault: history.length ? {} : ((await HistoryFault()) ?? {}),
+    spaces: await Spaces(), undoFiles: await PendingUndo(),
+    restorePoints: await RestorePoints(), projectFolders: await WorkspaceFolders(),
+    projects: await RecentProjects(),
+  } as unknown as engine.SessionOpenState
+})
 export const ModelStatus = str()
 export const NewSession = str()
 // The five buttons (COMPANY.md §2). Defaults are the empty office of a fresh
@@ -417,9 +446,18 @@ export const NewSessionInSpace = str()
 export const CurrentSpace = str()
 export const Spaces = arr()
 export const SessionsInSpace = arr()
-export const CreateSpace = noop()
+export const CreateSpace = vi.fn(async (name: string) => ({
+  name, description: '', image: '', path: '', contextPath: '', contextFiles: [],
+  contextModified: {}, chats: 0, updatedAt: new Date().toISOString(),
+} as engine.Space))
 export const DeleteSpace = noop()
 export const OpenSpaceFolder = noop()
+export const UpdateSpaceDescription = vi.fn(async (name: string, description: string) => ({
+  name, description, image: '', path: '', contextPath: '', contextFiles: [],
+  contextModified: {}, chats: 0, updatedAt: new Date().toISOString(),
+} as engine.Space))
+export const PickSpaceImage = str()
+export const RemoveSpaceImage = noop()
 export const AddSpaceContext = arr()
 export const RemoveSpaceContext = arr()
 // Where the picker's price column came from (§203). Empty by default, which
@@ -562,6 +600,10 @@ export const ReadImageDataURL = str()
 export const RecentAgentPages = arr()
 export const RecentDebugLog = arr()
 export const RecentProjects = arr()
+export const UpdateProjectMeta = vi.fn(async (..._args: any[]) => ({
+  key: 'project', name: '', folder: '', description: '', rootPath: '',
+  openedAt: '', sessions: 0, snippet: '',
+} as engine.ProjectMeta))
 export const RefreshSkills = noop()
 export const RelativizePath = str()
 // Go decides whether typed text is a place or a search (desktop/address.go).
@@ -646,6 +688,7 @@ export const SwitchModel = vi.fn(async () => modelInfo())
 export const SetUILocale = noop()
 export const SwitchProvider = vi.fn(async () => modelInfo())
 export const SwitchThinkLevel = vi.fn(async () => modelInfo())
+export const SwitchServiceTier = vi.fn(async () => modelInfo())
 export const TerminalAttach = str()
 export const TerminalClose = noop()
 export const TerminalResize = noop()

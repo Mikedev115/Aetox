@@ -1,6 +1,6 @@
 import type { PageId } from '../../rooms'
 
-export type CatalogKind = 'target' | 'concept'
+export type CatalogKind = 'target' | 'concept' | 'route'
 
 export interface CatalogEvidence {
   ref?: string // e.g. "§293", "§106"
@@ -17,6 +17,17 @@ export interface StateCondition {
 export interface TargetNavigationReq {
   via?: string[] // IDs of buttons that must be pressed first in order
   condition?: StateCondition
+  prerequisiteActionKey?: string
+}
+
+export interface NavigationResolution {
+  targetId: string
+  reachable: boolean
+  available: boolean
+  nextStepId: string | null
+  stepsRemaining: string[]
+  preconditionMet: boolean
+  blockedReason?: string
 }
 
 export interface ActionPolicy {
@@ -46,4 +57,11 @@ export interface ConceptCatalogEntry extends BaseCatalogEntry {
   preferredPage?: PageId   // recommended page to view when explaining
 }
 
-export type CatalogEntry = TargetCatalogEntry | ConceptCatalogEntry
+export interface RouteCatalogEntry extends BaseCatalogEntry {
+  kind: 'route'
+  nameKey: string
+  descKey: string
+  stops: string[]
+}
+
+export type CatalogEntry = TargetCatalogEntry | ConceptCatalogEntry | RouteCatalogEntry

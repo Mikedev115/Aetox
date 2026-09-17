@@ -13,6 +13,8 @@
 // moving, which is a different event and a more common one — most of the time
 // the page is right and the box under the ring is not where it was.
 //
+import { rectOnScreen } from './where'
+
 // It also answers the harder half. A sign only changes when the page does, so
 // a button that disappears WITHIN a page — a menu closing, a card collapsing,
 // a row filtered away — moves no sign at all. Here that is simply a box with
@@ -66,7 +68,7 @@ export function watchBox(
     // No size at all: it is not somewhere else, it is not there. Told apart
     // from a move because the two want opposite answers — follow it, or let go
     // of it.
-    if (now.width <= 0 || now.height <= 0 || !el.isConnected) {
+    if (!rectOnScreen(now) || !el.isConnected) {
       stopped = true
       onGone()
       return

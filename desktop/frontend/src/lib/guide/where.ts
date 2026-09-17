@@ -11,7 +11,7 @@
 // *which* settings page — so the guide could not tell the model page from the
 // memory page, and greeted both the same way.
 
-import { PLACE_ATTR, isPageId, roomOf, type PageId } from '../rooms'
+import { CONTEXT_ATTR, PLACE_ATTR, isPageId, roomOf, type PageId } from '../rooms'
 
 /**
  * The place on screen now, or null when nothing has said.
@@ -46,9 +46,64 @@ export function currentRoom(): string | null {
   return page ? roomOf(page) : null
 }
 
+/** The visible variant inside a page, such as assistant/coding on `chat`. */
+export function currentContext(): string {
+  if (typeof document === 'undefined') return ''
+  const signs = document.querySelectorAll<HTMLElement>(`[${CONTEXT_ATTR}]`)
+  let best: { value: string; depth: number } | null = null
+  for (const el of signs) {
+    const value = el.getAttribute(CONTEXT_ATTR) || ''
+    const r = el.getBoundingClientRect()
+    if (!value || r.width <= 0 || r.height <= 0) continue
+    let depth = 0
+    for (let n: HTMLElement | null = el; n; n = n.parentElement) depth++
+    if (!best || depth > best.depth) best = { value, depth }
+  }
+  return best?.value ?? ''
+}
+
 /** Is this exactly where we are? */
 export function isHere(page: PageId): boolean {
   return currentPage() === page
+}
+
+/** A real piece of a target has to be inside the viewport. Merely having a
+ * layout box is not enough: drawers and duplicated menu content can remain
+ * mounted just beyond the window, which used to leave the arrow as a tiny
+ * amber sliver on the screen edge. */
+export function rectOnScreen(r: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>): boolean {
+  if (r.width <= 0 || r.height <= 0) return false
+  if (typeof window === 'undefined') return true
+  const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0
+  const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0
+  if (viewportWidth <= 0 || viewportHeight <= 0) return true
+  // Real DOMRects always provide left/top. A few light-weight hosts and our
+  // deterministic DOM tests expose only width/height, which means origin.
+  const left = Number.isFinite(r.left) ? r.left : 0
+  const top = Number.isFinite(r.top) ? r.top : 0
+  const right = left + r.width
+  const bottom = top + r.height
+  const visibleWidth = Math.min(right, viewportWidth) - Math.max(left, 0)
+  const visibleHeight = Math.min(bottom, viewportHeight) - Math.max(top, 0)
+  // Eight pixels is enough for a compact icon to be genuinely usable, while
+  // rejecting the one-pixel remnant of a panel animating out of the window.
+  return visibleWidth >= Math.min(8, r.width) && visibleHeight >= Math.min(8, r.height)
+}
+
+function elementActuallyVisible(el: HTMLElement): boolean {
+  const style = typeof getComputedStyle === 'function' ? getComputedStyle(el) : null
+  if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse') return false
+  if (style?.opacity === '0') return false
+  return rectOnScreen(el.getBoundingClientRect())
+}
+
+/** Return the visible copy of a guide target. Some Svelte snippets are
+ * intentionally rendered in both the empty panel and its + menu; selecting
+ * the first DOM copy can therefore select an off-screen clone. */
+export function visibleGuideElement(id: string): HTMLElement | null {
+  if (typeof document === 'undefined') return null
+  const selector = '[data-guide=' + JSON.stringify(id) + ']'
+  return Array.from(document.querySelectorAll<HTMLElement>(selector)).find(elementActuallyVisible) ?? null
 }
 
 /**
@@ -61,9 +116,5 @@ export function isHere(page: PageId): boolean {
  * press, and a guide standing beside it is standing beside nothing.
  */
 export function onScreen(id: string): boolean {
-  if (typeof document === 'undefined') return false
-  const el = document.querySelector<HTMLElement>('[data-guide=' + JSON.stringify(id) + ']')
-  if (!el) return false
-  const r = el.getBoundingClientRect()
-  return r.width > 0 && r.height > 0
+  return visibleGuideElement(id) !== null
 }

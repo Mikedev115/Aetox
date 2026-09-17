@@ -12,13 +12,15 @@
   // because its folder exists, and an index behind this page would start
   // disagreeing with the disk the first time the user moved one.
   //
-  // There is no description on a card, deliberately. Aetox has nowhere to store
-  // one — the folder is the whole record — and inventing a file convention to
-  // hold a sentence would be a second source of truth for the sake of a subtitle.
-  // The card carries what is already true: how many chats, how much context,
-  // when it last changed.
+  // The project folder is still the record. Its small hidden metadata file and
+  // optional picture travel with it, while context/ remains only the material
+  // every chat may read. Nothing here needs a second database index.
   import { onMount } from 'svelte'
-  import { Spaces, CreateSpace, DeleteSpace, OpenSpaceFolder, SessionsInSpace, AddSpaceContext, AddSpaceContextFiles, RemoveSpaceContext } from '../../wailsjs/go/main/App'
+  import {
+    Spaces, CreateSpace, DeleteSpace, OpenSpaceFolder, SessionsInSpace,
+    AddSpaceContext, AddSpaceContextFiles, RemoveSpaceContext,
+    UpdateSpaceDescription, PickSpaceImage, RemoveSpaceImage,
+  } from '../../wailsjs/go/main/App'
   import { engine } from '../../wailsjs/go/models'
   import { agoLabel, cockpit, newSpaceSession, selectGlobalSession, sendUserMessage, sessionUnread, sessionWorking, setActiveView } from './stores/cockpit.svelte'
   import { t } from './i18n.svelte'
@@ -36,6 +38,7 @@
   let loaded = $state(false)
   let creating = $state(false)
   let draftName = $state('')
+  let draftDescription = $state('')
   let query = $state('')
   let sortBy = $state<'updated' | 'name'>('updated')
   let error = $state('')
@@ -51,6 +54,9 @@
   // carrying the one button that removes the project. It is about the project,
   // so it lives with the project's name, behind a menu rather than in the open.
   let menuOpen = $state(false)
+  let avatarMenuOpen = $state(false)
+  let editingDescription = $state(false)
+  let descriptionDraft = $state('')
   // What the project's chats open with (starters.ts): the six cards a blank
   // chat inside a project deals from. Drawn here too, because this page is
   // where a person decides what to ask, and the cards were one click further
@@ -60,7 +66,7 @@
   const starters = $derived(open ? startersFor({ desk: 'assistant', chair: '', space: open.name }).starters : [])
   const shown = $derived(
     projects
-      .filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase()))
+      .filter((p) => `${p.name} ${p.description ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))
       // The backend hands them back newest first; sorting by name is the only
       // reordering this page does, so it is the only branch here.
       .sort((a, b) => (sortBy === 'name' ? a.name.localeCompare(b.name) : 0)),
@@ -77,6 +83,10 @@
   async function enter(name: string) {
     openName = name
     chats = (await SessionsInSpace(name)) ?? []
+    const selected = projects.find((p) => p.name === name)
+    descriptionDraft = selected?.description ?? ''
+    editingDescription = false
+    avatarMenuOpen = false
   }
 
   async function create() {
@@ -85,11 +95,58 @@
     error = ''
     busy = 'create'
     try {
-      await CreateSpace(name)
+      const created = await CreateSpace(name)
+      if (draftDescription.trim()) await UpdateSpaceDescription(created.name, draftDescription)
       draftName = ''
+      draftDescription = ''
       creating = false
       await refresh()
       await enter(name)
+    } catch (err) {
+      error = String(err)
+    }
+    busy = ''
+  }
+
+  function applySpace(updated: engine.Space) {
+    projects = projects.map((p) => p.name === updated.name ? updated : p)
+    descriptionDraft = updated.description ?? ''
+  }
+
+  async function saveDescription(name: string) {
+    error = ''
+    busy = 'description'
+    try {
+      applySpace(await UpdateSpaceDescription(name, descriptionDraft))
+      editingDescription = false
+    } catch (err) {
+      error = String(err)
+    }
+    busy = ''
+  }
+
+  async function pickImage(name: string) {
+    error = ''
+    busy = 'image'
+    try {
+      const image = await PickSpaceImage(name)
+      if (image) {
+        projects = projects.map((p) => p.name === name ? ({ ...p, image } as engine.Space) : p)
+      }
+      avatarMenuOpen = false
+    } catch (err) {
+      error = String(err)
+    }
+    busy = ''
+  }
+
+  async function removeImage(name: string) {
+    error = ''
+    busy = 'image'
+    try {
+      await RemoveSpaceImage(name)
+      projects = projects.map((p) => p.name === name ? ({ ...p, image: '' } as engine.Space) : p)
+      avatarMenuOpen = false
     } catch (err) {
       error = String(err)
     }
@@ -270,44 +327,65 @@
   }
 </script>
 
-<svelte:window onclick={() => (menuOpen = false)} />
+<svelte:window onclick={() => { menuOpen = false; avatarMenuOpen = false }} />
 
 <div class="page-shell" data-guide-place="projects">
-  <!-- The title is the level you are on. Inside a project the room's own name
-       and blurb would be the second and third heading in a row saying nothing
-       about the project you opened — so the project takes the title, and the
-       breadcrumb above it is both the trail and the way back. -->
   <header class="page-head">
     {#if open}
-      <!-- One line of navigation, not three. The arrow is the trail's first
-           step (back to the list), the app is one level further out and gets
-           the far edge and the key that already closes the page. Three ways
-           back stacked over the title was the first cut, and every one of
-           them was a heading about somewhere else. -->
       <nav class="proj-crumbline">
         <button class="settings-back" onclick={() => (openName = '')}><Icon name="arrowLeft" size={14} /> {t('desk.projects')}</button>
         <span class="proj-crumb-sep">/</span>
         <span class="proj-crumb-here">{open.name}</span>
         <span class="proj-crumb-grow"></span>
-        <button class="proj-esc" onclick={onClose}>{t('settings.backToApp')} <kbd>Esc</kbd></button>
+        <button class="proj-esc" data-guide="room.back" onclick={onClose}>{t('settings.backToApp')} <kbd>Esc</kbd></button>
       </nav>
-      <!-- The project's own colour, the same one its card wears on the list
-           (coverHue): the page used to drop it at the door, and a name alone
-           over two columns of grey was nobody's project in particular. -->
       <div class="page-title proj-title">
-        <span class="proj-swatch" style="--h:{coverHue(open.name)}"><span class="pp-mono">{monogram(open.name)}</span></span>
+        <div class="proj-avatar-wrap">
+          <button type="button" class="proj-swatch proj-avatar-button" style="--h:{coverHue(open.name)}"
+            aria-label={t('projects.uploadImage')} aria-haspopup="menu" aria-expanded={avatarMenuOpen}
+            disabled={busy === 'image'} onclick={(e) => { e.stopPropagation(); avatarMenuOpen = !avatarMenuOpen }}>
+            {#if open.image}<img src={open.image} alt="" />{:else}<span class="pp-mono">{monogram(open.name)}</span>{/if}
+            <span class="proj-avatar-camera"><Icon name="camera" size={11} /></span>
+          </button>
+          {#if avatarMenuOpen}
+            <div class="proj-avatar-menu plus-menu" role="menu">
+              <button type="button" class="plus-menu-item" role="menuitem" onclick={() => pickImage(open.name)}>
+                <span class="ic"><Icon name="image" size={14} /></span>{t('projects.uploadImage')}
+              </button>
+              {#if open.image}
+                <button type="button" class="plus-menu-item" role="menuitem" onclick={() => removeImage(open.name)}>
+                  <span class="ic"><Icon name="rotateCcw" size={14} /></span>{t('projects.removeImage')}
+                </button>
+              {/if}
+              <span class="proj-avatar-hint">{t('projects.imageHint')}</span>
+            </div>
+          {/if}
+        </div>
         <div class="proj-title-text">
           <h2>{open.name}</h2>
+          {#if editingDescription}
+            <form class="proj-description-edit" onsubmit={(e) => { e.preventDefault(); saveDescription(open.name) }}>
+              <textarea rows="2" maxlength="240" bind:value={descriptionDraft} placeholder={t('projects.descriptionPlaceholder')}></textarea>
+              <span class="proj-description-actions">
+                <button type="submit" class="ctrl ctrl-primary" disabled={busy === 'description'}>{busy === 'description' ? t('settings.saving') : t('settings.save')}</button>
+                <button type="button" class="ctrl" onclick={() => { editingDescription = false; descriptionDraft = open.description ?? '' }}>{t('settings.cancel')}</button>
+              </span>
+            </form>
+          {:else}
+            <button type="button" class="proj-description" class:empty={!open.description}
+              aria-label={t('projects.editDescription')} onclick={() => { descriptionDraft = open.description ?? ''; editingDescription = true }}>
+              <span>{open.description || t('projects.descriptionEmpty')}</span><Icon name="pencil" size={12} />
+            </button>
+          {/if}
           <p class="proj-stats">
             <span>{t('projects.chatCount', { n: chats.length })}</span>
             <span class="proj-stat-sep">·</span>
             <span>{t('projects.fileCount', { n: open.contextFiles.length })}</span>
             <span class="proj-stat-sep">·</span>
             <span>{agoLabel(open.updatedAt)}</span>
-            <span class="proj-stat-sep">·</span>
-            <span class="proj-stat-path" title={open.path}>{open.path}</span>
           </p>
         </div>
+        <button class="ctrl proj-open-folder" onclick={() => openFolder(open.name)}><Icon name="folderOpen" size={14} />{t('projects.openFolder')}</button>
         <span class="row-menu-wrap">
           <button type="button" class="row-more proj-more" aria-label={t('sidebar.rowMenu')} title={t('sidebar.rowMenu')}
             aria-haspopup="menu" aria-expanded={menuOpen} onclick={(e) => { e.stopPropagation(); menuOpen = !menuOpen }}>
@@ -315,10 +393,6 @@
           </button>
           {#if menuOpen}
             <div class="plus-menu right" role="menu">
-              <button type="button" class="plus-menu-item" role="menuitem" onclick={() => { menuOpen = false; openFolder(open.name) }}>
-                <span class="ic"><Icon name="folderOpen" size={14} /></span>
-                {t('projects.openFolder')}
-              </button>
               <button type="button" class="plus-menu-item danger" role="menuitem" disabled={busy === 'delete'}
                 onclick={() => { menuOpen = false; confirmProject = open.name }}>
                 <span class="ic"><Icon name="trash" size={14} /></span>
@@ -329,10 +403,10 @@
         </span>
       </div>
     {:else}
-      <button class="settings-back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
-      <div class="page-title">
-        <h2>{t('desk.projects')}</h2>
-        <p>{t('projects.intro')}</p>
+      <button class="settings-back" data-guide="room.back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
+      <div class="page-title proj-list-title">
+        <div class="proj-list-title-copy"><h2>{t('desk.projects')}</h2><p>{t('projects.intro')}</p></div>
+        <button class="ctrl ctrl-primary proj-create-primary" onclick={() => (creating = !creating)}><Icon name="plus" size={14} />{t('projects.create')}</button>
       </div>
     {/if}
   </header>
@@ -342,13 +416,11 @@
       {#if error}<div class="page-error">{error}</div>{/if}
 
       {#if open}
-        <!-- One project: the work on the left, what the project carries on the
-             right. The title and the trail live in the page header above. -->
         <div class="proj-detail">
           <section class="proj-work">
-            <!-- A composer, one line high: the first thing said in the new
-                 chat, or nothing and a blank one. Enter sends; Shift+Enter is
-                 a newline like the real one. -->
+            <div class="proj-section-head">
+              <div><h3>{t('projects.newChatHeading')}</h3><p>{t('projects.newChatHint')}</p></div>
+            </div>
             <div class="proj-composer">
               <span class="proj-composer-ic"><Icon name="sparkles" size={15} /></span>
               <!-- svelte-ignore a11y_autofocus -->
@@ -367,21 +439,16 @@
               {/each}
             </div>
 
-            <div class="settings-group-label eyebrow">{t('projects.chats')}</div>
+            <div class="proj-section-head proj-chat-head">
+              <div><h3>{t('projects.chats')}</h3><p>{t('projects.chatsHint')}</p></div>
+              <span class="proj-section-count">{t('projects.chatCount', { n: chats.length })}</span>
+            </div>
             {#if chats.length === 0}
               <div class="proj-none">{t('projects.noChats')}</div>
             {:else}
               <ul class="proj-chats">
                 {#each chats as chat (chat.id)}
                   <li>
-                    <!-- Same dot the sidebar draws, on the same two facts:
-                         green while a turn is running in this chat, amber once
-                         one has finished and nobody has opened it. The page is
-                         a list of the project's conversations, so it is one of
-                         the places you walk back to in order to find out.
-                         Two lines: the title is the user's first sentence and
-                         five of them in one project start the same way, so the
-                         second line is what the assistant last said. -->
                     <button class:working={sessionWorking(chat)} class:unread={sessionUnread(chat)}
                       onclick={() => openChat(chat)}>
                       <Icon name="messageSquare" size={13} />
@@ -402,23 +469,17 @@
             {/if}
           </section>
 
-          <!-- The rail is one card, not three. The reference has Instructions
-               and Scheduled beside Context; neither is ours to put here yet —
-               recurring work is the ระบบออโตเมชั่น room (COMPANY.md §7, still
-               ⏳), and a second door to a room that does not exist is a promise
-               the app cannot keep.
-               data-context-drop is how App.svelte's one drop handler finds the
-               card: files dropped on it are copied in. -->
           <aside class="proj-rail">
             <div class="proj-rail-card" data-context-drop>
               <div class="proj-rail-head">
-                <h4>{t('projects.context')}</h4>
+                <Icon name="fileText" size={14} /><h4>{t('projects.context')}</h4>
                 {#if open.contextFiles.length > 0}
                   <span class="proj-rail-count">{t('projects.fileCount', { n: open.contextFiles.length })}</span>
                 {/if}
                 <button class="icobtn tiny" aria-label={t('projects.addFiles')} title={t('projects.addFiles')}
                   disabled={busy === 'add'} onclick={() => addFiles(open.name)}><Icon name="plus" size={14} /></button>
               </div>
+              <p class="proj-context-explainer">{t('projects.contextExplainer')}</p>
 
               {#if open.contextFiles.length === 0}
                 <button class="proj-drop" disabled={busy === 'add'} onclick={() => addFiles(open.name)}>
@@ -431,9 +492,6 @@
                     <li>
                       <Icon name="fileText" size={13} />
                       <span class="proj-file-name" title={file}>{file}</span>
-                      <!-- The date steps aside for the delete on hover: they
-                           share the row's end, and the one you can act on wins
-                           while you are pointing at it. -->
                       <span class="proj-file-ago">{fileAgo(open, file)}</span>
                       <button
                         class="proj-file-del" class:confirm={confirmFile === file}
@@ -455,94 +513,67 @@
                 <button class="linkish proj-rail-foot" onclick={() => openFolder(open.name)}>
                   {t('projects.openFolder')}
                 </button>
-                <span class="proj-hint">{t('projects.contextHint')}</span>
+                <span class="proj-hint">{t('projects.dropHint')}</span>
               </div>
             </div>
           </aside>
         </div>
       {:else}
-        <!-- The list, in the same card system the preset gallery and the roster
-             use (pp-*): one visual language across every shelf in the app. A
-             project has no picture to ship, so its cover is a colour derived
-             from its own name — the gallery reads as a gallery on the day it is
-             created, with nothing in the installer. -->
+        {#if creating}
+          <form class="proj-create-panel" onsubmit={(e) => { e.preventDefault(); create() }}>
+            <span class="proj-create-avatar" style="--h:{coverHue(draftName || t('desk.projects'))}">{monogram(draftName || '—')}</span>
+            <span class="proj-create-fields">
+              <!-- svelte-ignore a11y_autofocus -->
+              <input class="ctrl" autofocus bind:value={draftName} placeholder={t('projects.namePlaceholder')}
+                onkeydown={(e) => { if (e.key === 'Escape') { creating = false; draftName = ''; draftDescription = '' } }} />
+              <textarea class="ctrl" rows="2" maxlength="240" bind:value={draftDescription} placeholder={t('projects.descriptionPlaceholder')}></textarea>
+              <span class="proj-create-help">{t('projects.createHint')}</span>
+            </span>
+            <span class="proj-draft-actions">
+              <button class="ctrl ctrl-primary" type="submit" disabled={busy === 'create' || !draftName.trim()}>{busy === 'create' ? t('settings.saving') : t('projects.createShort')}</button>
+              <button class="ctrl" type="button" onclick={() => { creating = false; draftName = ''; draftDescription = '' }}>{t('settings.cancel')}</button>
+            </span>
+          </form>
+        {/if}
+
         {#if projects.length > 0}
           <div class="proj-bar">
             <label class="proj-search">
               <Icon name="search" size={13} />
-              <input bind:value={query} placeholder={t('projects.search')} />
+              <input bind:value={query} placeholder={t('projects.search')} aria-label={t('projects.search')} />
             </label>
             <div class="proj-sort">
-              <span>{t('projects.sortBy')}</span>
-              <select class="ctrl" bind:value={sortBy}>
+              <select class="ctrl" bind:value={sortBy} aria-label={t('projects.sortBy')}>
                 <option value="updated">{t('projects.sortUpdated')}</option>
                 <option value="name">{t('projects.sortName')}</option>
               </select>
             </div>
+            <span class="proj-total">{t('projects.projectCount', { n: shown.length })}</span>
           </div>
         {/if}
 
-        <div class="pp-grid proj-gallery">
-          {#if creating}
-            <!-- Creating is a card in the same slot the new-project card sits
-                 in, with the cover already wearing the colour the name will
-                 keep. The first thing a person makes here should look like the
-                 thing they are making, not like a form about it. -->
-            <form class="pp-card proj-draft" onsubmit={(e) => { e.preventDefault(); create() }}>
-              <span class="pp-cover" style="--h:{coverHue(draftName || t('desk.projects'))}">
-                <span class="pp-mono">{draftName || '—'}</span>
-              </span>
-              <div class="pp-body">
-                <!-- svelte-ignore a11y_autofocus -->
-                <input
-                  class="ctrl" autofocus bind:value={draftName} placeholder={t('projects.namePlaceholder')}
-                  onkeydown={(e) => { if (e.key === 'Escape') { creating = false; draftName = '' } }}
-                />
-                <span class="pp-desc">{t('projects.createHint')}</span>
-                <div class="proj-draft-actions">
-                  <button class="ctrl ctrl-primary" type="submit" disabled={busy === 'create' || !draftName.trim()}>
-                    {busy === 'create' ? t('settings.saving') : t('projects.createShort')}
-                  </button>
-                  <button class="ctrl" type="button" onclick={() => { creating = false; draftName = '' }}>
-                    {t('settings.cancel')}
-                  </button>
-                </div>
-              </div>
-            </form>
-          {:else}
-            <button class="pp-card pp-new" onclick={() => (creating = true)}>
-              <span class="pp-plus">+</span>
-              <span class="pp-newtxt">{t('projects.create')}</span>
-            </button>
-          {/if}
-
+        <div class="proj-gallery">
           {#each shown as p (p.name)}
-            <!-- The delete is a sibling of the card, not a child: the card is
-                 itself a button, and a button inside a button is not markup a
-                 browser will honour. The wrapper is what the two share. -->
             <div class="proj-cardwrap">
-              <button class="pp-card proj-card" onclick={() => enter(p.name)} title={p.path}>
-                <span class="pp-cover" style="--h:{coverHue(p.name)}">
-                  <span class="pp-mono">{p.name}</span>
+              <button class="proj-card" onclick={() => enter(p.name)} title={p.path}>
+                <span class="proj-card-cover" style="--h:{coverHue(p.name)}">
+                  {#if p.image}
+                    <img src={p.image} alt="" />
+                  {:else}
+                    <span class="proj-card-fallback">{monogram(p.name)}</span>
+                  {/if}
+                  <span class="proj-card-cover-shade"></span>
                 </span>
-                <div class="pp-body">
+                <span class="proj-card-body">
                   <span class="pp-title">{p.name}</span>
-                  <span class="pp-desc">
-                    {#if p.chats === 0 && p.contextFiles.length === 0}
-                      {t('projects.cardEmpty')}
-                    {:else}
-                      {[
-                        p.chats > 0 ? t('projects.chatCount', { n: p.chats }) : '',
-                        p.contextFiles.length > 0 ? t('projects.fileCount', { n: p.contextFiles.length }) : '',
-                      ].filter(Boolean).join(' · ')}
-                    {/if}
+                  <span class="proj-card-description" class:empty={!p.description}>{p.description || t('projects.descriptionEmpty')}</span>
+                  <span class="proj-card-meta">
+                    <span><Icon name="messageSquare" size={12} />{t('projects.chatCount', { n: p.chats })}</span>
+                    <span><Icon name="fileText" size={12} />{t('projects.fileCount', { n: p.contextFiles.length })}</span>
+                    <span class="proj-card-updated"><Icon name="clock" size={12} />{agoLabel(p.updatedAt)}</span>
                   </span>
-                </div>
-                <span class="proj-card-foot">{agoLabel(p.updatedAt)}</span>
+                </span>
               </button>
-              <!-- Named per card rather than a row of identical "delete"
-                   buttons: this is the label a screen reader reads out, and
-                   "delete project" nine times over says nothing about which. -->
               <button
                 class="proj-card-del"
                 aria-label={t('projects.deleteNamed', { name: p.name })}
@@ -552,11 +583,11 @@
               ><Icon name="x" size={13} /></button>
             </div>
           {/each}
+          {#if !creating}
+            <button class="proj-new-card" onclick={() => (creating = true)}><span class="proj-new-icon"><Icon name="plus" size={18} /></span><span>{t('projects.create')}</span></button>
+          {/if}
         </div>
 
-        <!-- Only ever about the search. The first cut showed this whenever the
-             grid was empty, so a brand-new install read "no project matches that
-             search" before anything had been searched for. -->
         {#if loaded && query.trim() !== '' && shown.length === 0}
           <div class="proj-none">{t('projects.noMatches')}</div>
         {/if}

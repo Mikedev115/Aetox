@@ -679,7 +679,7 @@
   })
 </script>
 
-<div class="repomap-pane">
+<div class="repomap-pane" data-guide="workbench.repo_map_view">
   {#if !loaded}
     <div class="rm-note rm-wait">
       <span class="rm-pulse"></span>

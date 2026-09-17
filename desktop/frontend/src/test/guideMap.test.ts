@@ -47,6 +47,20 @@ describe('GUIDE_MAP and UI data-guide integrity', () => {
       while ((m = tagRegex.exec(content)) !== null) {
         foundTags.add(m[1])
       }
+
+      // A repeated control may keep its guide ids in a typed lookup and bind
+      // them with `data-guide={LOOKUP[row.id]}`. Those are just as static as a
+      // literal attribute; teach this source-integrity check to read the
+      // referenced lookup rather than forcing duplicated markup into the UI.
+      const lookupBinding = /data-guide=\{([A-Za-z_$][\w$]*)\s*\[/g
+      while ((m = lookupBinding.exec(content)) !== null) {
+        const name = m[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const lookup = new RegExp(`const\\s+${name}[^=]*=\\s*\\{([\\s\\S]*?)\\n\\s*\\}`).exec(content)
+        if (!lookup) continue
+        const value = /:\s*['"]([^'"]+)['"]/g
+        let v: RegExpExecArray | null
+        while ((v = value.exec(lookup[1])) !== null) foundTags.add(v[1])
+      }
     }
 
     const mapIds = new Set(GUIDE_MAP.map((e) => e.id))

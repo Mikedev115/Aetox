@@ -13,7 +13,7 @@ import {
   AgentSkills, AgentNeeds, PlacementTargets, SetMCPServerTargets, CopySkillToAgent,
   ChairStarters, SaveChairStarters, DelegateSwitches, SetAgentOff,
   AcceptsAPIKey, APIKeyHint, HasAPIKey, ProviderAPIKeyURL, ProviderReady, PriceModels, TestProviderConnection,
-  ListSpeechEngines, ListTTSEngines, SetSpeechEngine, SetSpeechModelName,
+  ListSpeechEngines, ListTTSEngines, ListTTSVoices, RefreshTTSVoices, TTSStatus, SetSpeechEngine, SetSpeechModelName,
   ListImageEngines, SetImageEngine,
   StudioLibraries, AddStudioLibrary, RemoveStudioLibrary,
   PickAgentBrief, FetchAgentBrief,
@@ -22,6 +22,7 @@ import { BrowserOpenURL } from './mocks/wailsRuntime'
 import { applyTypeScale, initTypeScale, typeScale, TYPE_SCALES, DEFAULT_TYPE_SCALE } from '../lib/typeScale.svelte'
 import { DEFAULT_SYSTEM_PX } from '../lib/systemFont.svelte'
 import { cockpit } from '../lib/stores/cockpit.svelte'
+import { guide } from '../lib/guide/guideState.svelte'
 
 // The chart plots a window ending today, so a hard-coded date would fall out
 // of it and the fixture would stop covering the chart the day after it was
@@ -338,6 +339,34 @@ describe('Settings pages', () => {
     expect(localStorage.getItem('aetox-audio-output')).toBe('spk')
   })
 
+  it('offers a Windows voice install and can detect the new voice without restarting', async () => {
+    const engineRow = (over: any) => ({
+      id: '', label: '', install: '', active: false, hasModels: false,
+      installCommand: [], models: [], activeModel: '', ...over,
+    })
+    vi.mocked(ListTTSEngines).mockResolvedValue([
+      engineRow({ id: 'windows', label: 'Windows', active: true }),
+    ] as any)
+    vi.mocked(TTSStatus).mockResolvedValue('')
+    vi.mocked(ListTTSVoices).mockResolvedValue([
+      { id: 'zira', name: 'Zira', lang: 'en-US', active: true },
+    ] as any)
+    vi.mocked(RefreshTTSVoices).mockResolvedValue([
+      { id: 'pattara', name: 'Pattara', lang: 'th-TH', active: true },
+    ] as any)
+
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'เสียง')
+    const install = await screen.findByRole('button', { name: 'ติดตั้งเสียง' })
+    expect(screen.getByText('ยังไม่มีเสียงภาษาไทยใน Windows')).toBeTruthy()
+
+    await fireEvent.click(install)
+    expect(vi.mocked(BrowserOpenURL)).toHaveBeenCalledWith('ms-settings:speech')
+    await fireEvent.click(screen.getByRole('button', { name: 'ตรวจอีกครั้ง' }))
+    await waitFor(() => expect(screen.queryByText('ยังไม่มีเสียงภาษาไทยใน Windows')).toBeNull())
+    expect(vi.mocked(RefreshTTSVoices)).toHaveBeenCalledTimes(1)
+  })
+
   // A pick that does not land must not leave the control claiming it did:
   // applyConfig parks a config change while a turn is in flight, so the vendor
   // the app is actually on can come back unchanged — and then the select must
@@ -368,6 +397,39 @@ describe('Settings pages', () => {
     await fireEvent.change(select, { target: { value: 'faster-whisper' } })
     await waitFor(() => expect(vi.mocked(SetSpeechEngine)).toHaveBeenCalledWith('faster-whisper'))
     await waitFor(() => expect(select.value).toBe('whisper-cpp'))
+  })
+
+  it('marks the recommended STT and free TTS choices in the native pickers', async () => {
+    const engineRow = (over: any) => ({
+      id: '', label: '', install: '', active: false, hasModels: false,
+      installCommand: [], models: [], activeModel: '', ...over,
+    })
+    vi.mocked(ListSpeechEngines).mockResolvedValue([
+      engineRow({ id: 'groq', label: 'Groq Whisper (คลาวด์, ใช้ API key)', active: true }),
+      engineRow({ id: 'whisper-cpp', label: 'whisper.cpp (ggml)' }),
+    ] as any)
+    vi.mocked(ListTTSEngines).mockResolvedValue([
+      engineRow({ id: 'edge', label: 'Microsoft Edge (คลาวด์, ฟรี)', active: true }),
+      engineRow({ id: 'windows', label: 'Windows (เสียงในเครื่อง)' }),
+    ] as any)
+
+    const { container } = render(Settings, { onClose: () => {} })
+    await openSection(container, 'เสียง')
+    await waitFor(() => expect(screen.getByText('เจ้าที่ใช้ถอดเสียง')).toBeTruthy())
+
+    const rowFor = (title: string) =>
+      Array.from(container.querySelectorAll('.set-row')).find((r) => r.textContent?.includes(title))!
+    const stt = rowFor('เจ้าที่ใช้ถอดเสียง').querySelector('select') as HTMLSelectElement
+    const tts = rowFor('เจ้าที่ใช้อ่าน').querySelector('select') as HTMLSelectElement
+
+    expect(Array.from(stt.options).map((o) => o.text)).toEqual([
+      'Groq Whisper (คลาวด์, ใช้ API key) · แนะนำ',
+      'whisper.cpp (ggml)',
+    ])
+    expect(Array.from(tts.options).map((o) => o.text)).toEqual([
+      'Microsoft Edge (คลาวด์, ฟรี) · แนะนำ',
+      'Windows (เสียงในเครื่อง)',
+    ])
   })
 
   // The picture page's two selects are the same control with a different
@@ -2219,6 +2281,23 @@ describe("the role field's roads in", () => {
     expect(body(container).value).toBe('ร่างที่พิมพ์เอง')
     await fireEvent.click(screen.getByText('แทนที่', { selector: '.confirm-go' }))
     await waitFor(() => expect(body(container).value).toContain('รายการตรวจ'))
+  })
+})
+
+describe('Settings guide entry', () => {
+  it('opens the guide on top of About without closing Settings first', async () => {
+    await guide.stop()
+    sessionStorage.setItem('aetox.settingsSection', 'about')
+    const onClose = vi.fn()
+    render(Settings, { onClose })
+    const openGuide = await screen.findByRole('button', { name: 'ปรึกษาไกด์' })
+
+    await fireEvent.click(openGuide)
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(guide.on).toBe(true)
+    expect(screen.getByRole('heading', { name: 'เกี่ยวกับ Aetox' })).toBeTruthy()
+    await guide.stop()
   })
 })
 

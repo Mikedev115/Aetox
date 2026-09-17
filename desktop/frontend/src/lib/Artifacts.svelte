@@ -20,7 +20,9 @@
 
   let files = $state<engine.Artifact[]>([])
   let loaded = $state(false)
+  let refreshing = $state(false)
   let error = $state('')
+  let refreshTicket = 0
 
   // Which slice of time the page is showing (DECISIONS §106-era owner call,
   // 2026-08-14: "โหลดมาแสดงล่าสุดแค่ของสัปดาห์นี้เป็นอันเริ่มต้นดีไหม เราเก็บเวลา
@@ -88,16 +90,40 @@
   let confirmPath = $state('')
 
   async function refresh() {
-    const page = await ListArtifactsIn(range)
-    files = page.files ?? []
-    served = (RANGES as readonly string[]).includes(page.range) ? (page.range as Range) : 'all'
-    total = page.total
-    // Back to one screenful whenever the set changes underneath: keeping the
-    // old count would paint six hundred cards the moment someone switches to
-    // "ทั้งหมด", which is the cost this whole arrangement exists to avoid.
-    shown = PAGE
-    previews = {}
-    loaded = true
+    const mine = ++refreshTicket
+    refreshing = true
+    error = ''
+    try {
+      const page = await ListArtifactsIn(range)
+      // A slower answer for the button pressed before this one must not move
+      // the gallery back to an older range. The disk read cannot be cancelled,
+      // but its right to paint can.
+      if (mine !== refreshTicket) return
+      const nextFiles = page.files ?? []
+      const nextModified = Object.fromEntries(nextFiles.map((f) => [f.path, f.modified]))
+      // Keep previews for unchanged files across kind/range switches. Clearing
+      // all of them here made tapping one chip re-open every image and document
+      // already on screen; changed or vanished files are the only stale ones.
+      for (const path of Object.keys(previews)) {
+        if (!nextModified[path] || previewModified[path] !== nextModified[path]) delete previews[path]
+      }
+      recent = recent.filter((path) => !!nextModified[path] && previewModified[path] === nextModified[path])
+      previewModified = nextModified
+      files = nextFiles
+      served = (RANGES as readonly string[]).includes(page.range) ? (page.range as Range) : 'all'
+      total = page.total
+      // Back to one screenful whenever the set changes underneath: keeping the
+      // old count would paint six hundred cards the moment someone switches to
+      // "ทั้งหมด", which is the cost this whole arrangement exists to avoid.
+      shown = PAGE
+    } catch (err) {
+      if (mine === refreshTicket) error = String(err)
+    } finally {
+      if (mine === refreshTicket) {
+        refreshing = false
+        loaded = true
+      }
+    }
   }
 
   function pick(next: Range) {
@@ -105,7 +131,7 @@
     void refresh()
   }
 
-  onMount(refresh)
+  onMount(() => { void refresh() })
 
   // A menu that only closes by choosing from it is a trap. Escape and a click
   // anywhere else both mean "never mind", and both are what every other menu on
@@ -483,6 +509,7 @@
   // capped at 500 rows and cracking 500 zips open to paint a grid nobody has
   // scrolled to is how a gallery comes to feel broken.
   let previews = $state<Record<string, engine.ArtifactPreview | 'loading'>>({})
+  let previewModified: Record<string, string> = {}
 
   // The order previews were last looked at, oldest first, so the ones furthest
   // behind are the ones dropped.
@@ -492,8 +519,12 @@
   // gallery left a hundred documents and a hundred megabytes of string behind
   // it, all of them off screen. A cap of a few screens keeps a scroll back up
   // instant while bounding what the page can hold.
-  const PREVIEW_KEEP = 90
+  const PREVIEW_KEEP = 36
+  const PREVIEW_CONCURRENCY = 4
   let recent: string[] = []
+  let previewActive = 0
+  const previewQueue: Array<{ path: string; modified: string; key: string }> = []
+  const previewQueued = new Set<string>()
 
   function touch(path: string) {
     const at = recent.indexOf(path)
@@ -505,16 +536,40 @@
     }
   }
 
-  async function loadPreview(path: string) {
+  function loadPreview(path: string) {
     touch(path)
     if (previews[path]) return
+    const modified = previewModified[path] ?? ''
+    const key = `${path}\0${modified}`
+    if (previewQueued.has(key)) return
     previews[path] = 'loading'
-    try {
-      previews[path] = await ArtifactPreview(path)
-    } catch {
-      // A file deleted underneath us, or one this side will not read. The card
-      // keeps its icon; a preview is a bonus, never the reason the row exists.
-      previews[path] = { kind: 'none' } as engine.ArtifactPreview
+    previewQueued.add(key)
+    previewQueue.push({ path, modified, key })
+    drainPreviewQueue()
+  }
+
+  function drainPreviewQueue() {
+    while (previewActive < PREVIEW_CONCURRENCY && previewQueue.length > 0) {
+      const job = previewQueue.shift()!
+      previewActive++
+      void ArtifactPreview(job.path)
+        .then((preview) => {
+          // The file can be replaced while its preview is being decoded. Only
+          // the request for the current modified stamp may paint this card.
+          if (previewModified[job.path] === job.modified) previews[job.path] = preview
+        })
+        .catch(() => {
+          // A file deleted underneath us, or one this side will not read. The
+          // card keeps its icon; a preview is a bonus, never the reason the row exists.
+          if (previewModified[job.path] === job.modified) {
+            previews[job.path] = { kind: 'none' } as engine.ArtifactPreview
+          }
+        })
+        .finally(() => {
+          previewQueued.delete(job.key)
+          previewActive--
+          drainPreviewQueue()
+        })
     }
   }
 
@@ -561,11 +616,11 @@
   }
 </script>
 
-<div class="page-shell" data-guide-place="artifacts">
+<div class="page-shell artifacts-page" data-guide-place="artifacts">
   <header class="page-head">
-    <button class="settings-back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
+    <button class="settings-back" data-guide="room.back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
     <div class="page-title">
-      <h2>{t('desk.artifacts')}</h2>
+      <h2 data-guide="artifacts.header">{t('desk.artifacts')}</h2>
       <p>{t('artifacts.intro')}</p>
     </div>
   </header>
@@ -573,7 +628,12 @@
   <div class="page-body">
     <div class="settings-inner wide">
       {#if error}<div class="page-error">{error}</div>{/if}
-      {#if loaded && files.length === 0}
+      {#if !loaded}
+        <div class="page-empty art-loading" role="status" aria-live="polite">
+          <span class="art-squeeze-spin"><Icon name="loaderCircle" size={18} /></span>
+          <p>{t('settings.loading')}</p>
+        </div>
+      {:else if files.length === 0}
         <div class="page-empty">
           <Icon name="package" size={22} />
           <p>{t('artifacts.empty')}</p>
@@ -583,73 +643,79 @@
            clicked: an empty week widens on the engine's side, and the control
            has to say what you are actually looking at. -->
       {#if loaded && (files.length > 0 || served !== 'week')}
-        <div class="art-ranges">
-          {#each shownKinds as k (k)}
-            <button type="button" class="art-range" class:on={kind === k} onclick={() => pickKind(k)}>
-              {t(`artifacts.kind.${k}`)}
-            </button>
-          {/each}
-          <span class="art-kindsep" aria-hidden="true"></span>
-          {#each RANGES as r (r)}
-            <button type="button" class="art-range" class:on={served === r} onclick={() => pick(r)}>
-              {t(`artifacts.range.${r}`)}
-            </button>
-          {/each}
-          <!-- `total` is the engine's count for the whole range, which is the
-               honest number only while nothing is filtered out of it: it counts
-               past the cap the page draws to, which is the whole reason it
-               exists. A picked kind is counted here instead, over what actually
-               arrived. -->
-          <span class="art-count">{t('artifacts.count', { n: String(kind === 'files' ? total : inKind.length) })}</span>
-          <!-- Right-hand end of the same row the ranges live on, because these
-               act on what that row is showing. Two buttons at rest: take all of
-               it, or drag a box over the part you meant. -->
-          <div class="art-bulk">
-            {#if pickedCount > 0}
-              <span class="art-picked">{t('artifacts.pickedCount', { n: String(pickedCount) })}</span>
-              {#if pickedImages.length > 0 || squeezing}
-                <button type="button" class="art-range" disabled={!!squeezing} onclick={squeeze}>
-                  {#if squeezing}
-                    {t('artifacts.squeezingN', {
-                      done: String(squeezing.done), total: String(squeezing.total),
-                    })}
-                  {:else}
-                    {t('artifacts.squeeze', { n: String(pickedImages.length) })}
-                  {/if}
-                </button>
-              {/if}
-              <button
-                type="button" class="art-range danger" class:on={confirmPath === 'picked'}
-                onclick={removePicked}
-              >
-                {confirmPath === 'picked'
-                  ? t('artifacts.reallyDelete', { n: String(pickedCount) })
-                  : t('artifacts.deletePicked')}
+        <div class="art-toolbar" class:busy={refreshing} aria-busy={refreshing}>
+          <div class="art-kind-row">
+            {#each shownKinds as k (k)}
+              <button type="button" class="art-range" class:on={kind === k} onclick={() => pickKind(k)}>
+                {t(`artifacts.kind.${k}`)}
               </button>
-              <button type="button" class="art-range" onclick={clearPicked}>{t('artifacts.clearPicked')}</button>
-            {:else}
-              <!-- One press for the common answer, a chevron for the rest. A
-                   menu that has to be opened before "all of it" can be said
-                   would put a click in front of the thing people want most. -->
-              <div class="art-span">
-                <button type="button" class="art-range" onclick={pickAll}>{t('artifacts.pickAll')}</button>
-                <button
-                  type="button" class="art-range art-span-more" class:on={spanOpen}
-                  aria-label={t('artifacts.pickSpan')} aria-expanded={spanOpen}
-                  onclick={() => (spanOpen = !spanOpen)}
-                ><Icon name="chevronDown" size={12} /></button>
-                {#if spanOpen}
-                  <!-- svelte-ignore a11y_no_static_element_interactions -->
-                  <div class="art-span-menu" role="menu">
-                    {#each SPANS as span (span.key)}
-                      <button type="button" role="menuitem" onclick={() => pickSpan(span)}>
-                        {t(span.label)}
-                      </button>
-                    {/each}
-                  </div>
+            {/each}
+          </div>
+          <div class="art-control-row">
+            <div class="art-time">
+              <span class="art-time-mark" aria-hidden="true"><Icon name="clock" size={13} /></span>
+              {#each RANGES as r (r)}
+                <button type="button" class="art-range" class:on={served === r} onclick={() => pick(r)}>
+                  {t(`artifacts.range.${r}`)}
+                </button>
+              {/each}
+            </div>
+            <!-- `total` is the engine's count for the whole range, which is the
+                 honest number only while nothing is filtered out of it: it counts
+                 past the cap the page draws to, which is the whole reason it
+                 exists. A picked kind is counted here instead, over what actually
+                 arrived. -->
+            <span class="art-count">{t('artifacts.count', { n: String(kind === 'files' ? total : inKind.length) })}</span>
+            <!-- Right-hand end of the same row the ranges live on, because these
+                 act on what that row is showing. Two buttons at rest: take all of
+                 it, or drag a box over the part you meant. -->
+            <div class="art-bulk">
+              {#if pickedCount > 0}
+                <span class="art-picked">{t('artifacts.pickedCount', { n: String(pickedCount) })}</span>
+                {#if pickedImages.length > 0 || squeezing}
+                  <button type="button" class="art-range" disabled={!!squeezing} onclick={squeeze}>
+                    {#if squeezing}
+                      {t('artifacts.squeezingN', {
+                        done: String(squeezing.done), total: String(squeezing.total),
+                      })}
+                    {:else}
+                      {t('artifacts.squeeze', { n: String(pickedImages.length) })}
+                    {/if}
+                  </button>
                 {/if}
-              </div>
-            {/if}
+                <button
+                  type="button" class="art-range danger" class:on={confirmPath === 'picked'}
+                  onclick={removePicked}
+                >
+                  {confirmPath === 'picked'
+                    ? t('artifacts.reallyDelete', { n: String(pickedCount) })
+                    : t('artifacts.deletePicked')}
+                </button>
+                <button type="button" class="art-range" onclick={clearPicked}>{t('artifacts.clearPicked')}</button>
+              {:else}
+                <!-- One press for the common answer, a chevron for the rest. A
+                     menu that has to be opened before "all of it" can be said
+                     would put a click in front of the thing people want most. -->
+                <div class="art-span">
+                  <button type="button" class="art-range" onclick={pickAll}>{t('artifacts.pickAll')}</button>
+                  <button
+                    type="button" class="art-range art-span-more" class:on={spanOpen}
+                    aria-label={t('artifacts.pickSpan')} aria-expanded={spanOpen}
+                    onclick={() => (spanOpen = !spanOpen)}
+                  ><Icon name="chevronDown" size={12} /></button>
+                  {#if spanOpen}
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <div class="art-span-menu" role="menu">
+                      {#each SPANS as span (span.key)}
+                        <button type="button" role="menuitem" onclick={() => pickSpan(span)}>
+                          {t(span.label)}
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              {/if}
+            </div>
           </div>
         </div>
       {/if}
@@ -682,6 +748,7 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="art-grid" class:picking={pickedCount > 0}
+        aria-busy={refreshing}
         onpointerdown={bandStart} onpointermove={bandMove}
         onpointerup={bandEnd} onpointercancel={bandEnd}
       >

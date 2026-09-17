@@ -15,6 +15,8 @@
   // dropped on the desk that could not be brought in at all still names itself.
   let { path, reason, name }: { path: string; reason: string; name?: string } = $props()
 
+  const directory = $derived(/\b(?:is a directory|EISDIR)\b/i.test(reason))
+
   let failure = $state('')
   // A file the agent produced can be gone by the time anyone opens the card:
   // the agent can delete files, and session output folders age out. The card
@@ -58,10 +60,11 @@
 </script>
 
 <div class="pane-empty extfile">
-  <span class="ic"><Icon name="fileText" size={28} /></span>
-  <p class="name">{path ? path.split('/').pop() ?? path : name ?? ''}</p>
+  <span class="ic"><Icon name={directory ? 'folder' : 'fileText'} size={28} /></span>
+  <p class="name">{path ? path.split(/[\\/]/).pop() ?? path : name ?? ''}</p>
   <p class="why">
     {#if gone}{t('workbench.fileGone')}
+    {:else if directory}{t('workbench.directoryCannotPreview')}
     {:else if path}{t('workbench.cannotPreview')}
     {:else}{t('workbench.dropFailed')}{/if}
   </p>
@@ -70,11 +73,12 @@
          is gone has nothing for the OS to open either — in both cases the
          reason line is the whole answer, and a button would be a lie. -->
     <button type="button" class="proj-add" onclick={open}>
-      <span class="ic"><Icon name="folderOpen" size={14} /></span> {t('workbench.openExternally')}
+      <span class="ic"><Icon name="folderOpen" size={14} /></span>
+      {directory ? t('workbench.openFolderExternally') : t('workbench.openExternally')}
     </button>
   {/if}
   {#if failure}
-    <p class="why err">{t('workbench.openFileError', { err: failure })}</p>
+    <p class="why err">{t(directory ? 'workbench.openFolderError' : 'workbench.openFileError', { err: failure })}</p>
   {:else if !gone}
     <p class="why dim">{reason}</p>
   {/if}

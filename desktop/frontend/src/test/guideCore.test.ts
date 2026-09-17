@@ -41,6 +41,46 @@ describe('GuideCore Deterministic Engine & Fact Pack', () => {
     const conceptDesc = guideCore.describe('concept.desk_separation')
     expect(conceptDesc).not.toBeNull()
     expect(conceptDesc?.ref).toBe('§86')
+
+    const guideSystemDesc = guideCore.describe('concept.guide_system')
+    expect(guideSystemDesc).not.toBeNull()
+    expect(guideSystemDesc?.ref).toBe('§293')
+
+    const routeDesc = guideCore.describe('first')
+    expect(routeDesc).not.toBeNull()
+    expect(routeDesc?.kind).toBe('route')
+    expect(routeDesc?.ref).toBe('§279')
+  })
+
+  it('describes dynamic skill and MCP facts without a second static catalogue', () => {
+    const row = document.createElement('article')
+    row.dataset.guide = 'capability.item.mcp.library.example'
+    row.dataset.guidePage = 'capability.shelf'
+    row.dataset.guideName = 'example'
+    row.dataset.guideWhat = 'An MCP server for example records.'
+    row.dataset.guideWhy = 'It can update those records directly.'
+    row.getBoundingClientRect = () => ({ width: 240, height: 48 }) as DOMRect
+    document.body.appendChild(row)
+
+    expect(guideCore.describe(row.dataset.guide)).toMatchObject({
+      id: 'capability.item.mcp.library.example',
+      kind: 'target',
+      name: 'example',
+      what: 'An MCP server for example records.',
+      why: 'It can update those records directly.',
+      safe: false,
+    })
+  })
+
+  it('route method resolves navigation graph and returns steps and preconditions', () => {
+    const footer = document.createElement('button')
+    footer.setAttribute('data-guide', 'sidebar.footer')
+    footer.getBoundingClientRect = () => ({ width: 180, height: 36 }) as DOMRect
+    document.body.appendChild(footer)
+    const nav = guideCore.route('settings.rail.brain')
+    expect(nav.targetId).toBe('settings.rail.brain')
+    expect(nav.reachable).toBe(true)
+    expect(nav.stepsRemaining).toBeDefined()
   })
 
   it('builds compact targeted fact packs without token bloat', () => {
@@ -67,6 +107,7 @@ describe('GuideCore Deterministic Engine & Fact Pack', () => {
     // Safe button on screen
     const btn = document.createElement('button')
     btn.setAttribute('data-guide', 'topbar.door')
+    btn.getBoundingClientRect = () => ({ width: 120, height: 32 }) as DOMRect
     const clickHandler = vi.fn()
     btn.addEventListener('click', clickHandler)
     document.body.appendChild(btn)

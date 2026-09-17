@@ -86,6 +86,7 @@ describe('the verb the row says', () => {
     // sitting waiting on somebody already hired.
     expect(toolVerbKey(step({ name: 'task', act: 'start' }))).toBe('tool.delegate')
     expect(toolVerbKey(step({ name: 'task', act: 'collect' }))).toBe('tool.awaitDelegate')
+    expect(toolVerbKey(step({ name: 'task', act: 'message' }))).toBe('tool.messageDelegate')
   })
 
   // A turn stored before ToolPart carried the act, and a call whose arguments

@@ -335,6 +335,7 @@ const VERB_OF: Record<string, TKey> = {
   'task:collect': 'tool.awaitDelegate',
   'task:plan': 'tool.plan',
   'task:answer': 'tool.answer',
+  'task:message': 'tool.messageDelegate',
   task: 'tool.delegate',
   // The tail worth naming anyway: small tools a reader sees often enough that
   // the raw identifier would be the only untranslated word on screen.

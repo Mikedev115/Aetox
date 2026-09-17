@@ -86,7 +86,7 @@
   // it was made as --ms-phase, so its loops continue the last drawing's.
   const CROSS_MS = 240
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
-  const cross = still || reduced ? 0 : CROSS_MS
+  const cross = $derived(still || reduced ? 0 : CROSS_MS)
   const phase = $derived.by(() => {
     void inner
     return typeof performance === 'object' ? -(performance.now() / 1000) : 0

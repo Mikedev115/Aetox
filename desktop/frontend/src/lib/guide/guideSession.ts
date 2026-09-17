@@ -1,11 +1,11 @@
 import { AnswerGuide } from '../../../wailsjs/go/main/App'
 import { GUIDE_MAP, guideText, type GuidePage } from './map'
 import { isPageId } from '../rooms'
-import { openPage } from './pages'
 import { currentPage } from './where'
 import { guide } from './guideState.svelte'
 import { cockpit } from '../stores/cockpit.svelte'
 import { t } from '../i18n.svelte'
+import { guideRouteChoices, routeForIntent, type GuideRouteId } from './routes'
 
 import { guideCore } from './core'
 
@@ -36,12 +36,58 @@ export async function handleGuideAsk(ask: { id: string; action: string; args?: R
         await AnswerGuide(id, JSON.stringify(res))
         break
       }
+      case 'find': {
+        const query = String(args.query || args.q || '')
+        const found = guideCore.find(query, guide.stopId, guide.route)
+        const res = {
+          stopId: found.stopId,
+          conceptId: found.conceptId,
+          route: found.route,
+          sentence: found.sentence,
+          confidence: found.confidence,
+          isExact: found.isExact,
+        }
+        await AnswerGuide(id, JSON.stringify(res))
+        break
+      }
+      case 'route': {
+        const targetId = String(args.id || args.targetId || '')
+        const nav = guideCore.route(targetId)
+        await AnswerGuide(id, JSON.stringify(nav))
+        break
+      }
+      case 'tours': {
+        await AnswerGuide(id, JSON.stringify({ tours: guideRouteChoices() }))
+        break
+      }
+      case 'tour': {
+        const requested = String(args.id || args.route || args.query || '')
+        const routeId = routeForIntent(requested || 'first')
+        if (!routeId) {
+          await AnswerGuide(id, JSON.stringify({
+            ok: false,
+            error: 'unknown tour: ' + requested,
+            tours: guideRouteChoices(),
+          }))
+          break
+        }
+        const status = await guide.beginRoute(routeId as GuideRouteId)
+        await AnswerGuide(id, JSON.stringify({
+          ok: status !== 'blocked',
+          status,
+          route: routeId,
+          nextStepId: guide.awaiting,
+          currentStopId: guide.stopId,
+        }))
+        break
+      }
       case 'describe': {
         const targetId = String(args.id || '')
         const fact = guideCore.describe(targetId)
         const entry = GUIDE_MAP.find((e) => e.id === targetId)
         const res = {
           id: targetId,
+          kind: fact?.kind || 'target',
           name: fact?.name || guideText(targetId, 'name') || targetId,
           what: fact?.what || guideText(targetId, 'what'),
           why: fact?.why || guideText(targetId, 'why'),
@@ -58,8 +104,14 @@ export async function handleGuideAsk(ask: { id: string; action: string; args?: R
           await AnswerGuide(id, JSON.stringify({ ok: false, error: 'unknown id: ' + targetId }))
           break
         }
-        await guide.goTo(targetId)
-        await AnswerGuide(id, JSON.stringify({ ok: true, page: currentPage() ?? String(cockpit.activeView) }))
+        const status = await guide.goTo(targetId)
+        await AnswerGuide(id, JSON.stringify({
+          ok: status !== 'blocked',
+          status,
+          destination: targetId,
+          page: currentPage() ?? String(cockpit.activeView),
+          nextStepId: guide.awaiting,
+        }))
         break
       }
       case 'goto': {
@@ -68,8 +120,14 @@ export async function handleGuideAsk(ask: { id: string; action: string; args?: R
           await AnswerGuide(id, JSON.stringify({ ok: false, error: 'unknown page: ' + String(args.page || '') }))
           break
         }
-        await openPage(page)
-        await AnswerGuide(id, JSON.stringify({ ok: true, page: currentPage() ?? String(cockpit.activeView) }))
+        const status = await guide.goToPage(page)
+        await AnswerGuide(id, JSON.stringify({
+          ok: status !== 'blocked',
+          status,
+          destination: page,
+          page: currentPage() ?? String(cockpit.activeView),
+          nextStepId: guide.awaiting,
+        }))
         break
       }
       case 'press': {

@@ -12,10 +12,11 @@ import {
   type Viewport,
   type Size,
   type PlacementMode,
+  type DockPosition,
   type PlacementResult,
 } from './geometry'
 export { GEOMETRY, calculatePlacement }
-export type { Rect, Viewport, Size, PlacementMode, PlacementResult }
+export type { Rect, Viewport, Size, PlacementMode, DockPosition, PlacementResult }
 
 /** The figure's box. 72 is the companion's own size on screen. */
 export const SIZE = GEOMETRY.FIGURE_SIZE
@@ -85,8 +86,8 @@ export function standBeside(target: Rect, win: Viewport): Stance {
 /**
  * Enhanced placement calculation supporting real-measured bubble size and docked callout fallback.
  */
-export function standBesideReal(target: Rect, bubbleSize: Size, win: Viewport): PlacementResult {
-  return calculatePlacement(target, bubbleSize, win)
+export function standBesideReal(target: Rect, bubbleSize: Size, win: Viewport, figureSize: number = SIZE): PlacementResult {
+  return calculatePlacement(target, bubbleSize, win, figureSize)
 }
 
 /**
@@ -94,20 +95,20 @@ export function standBesideReal(target: Rect, bubbleSize: Size, win: Viewport): 
  * clear of the composer, the corner the companion also favours. Far enough in
  * that the bubble, which opens leftward from here, stays on screen.
  */
-export function restingSpot(win: Viewport): { x: number; y: number } {
+export function restingSpot(win: Viewport, figureSize: number = SIZE): { x: number; y: number } {
   return {
-    x: Math.max(EDGE, win.width - SIZE - 140),
-    y: Math.max(TOP_SAFE, win.height - SIZE - 120),
+    x: Math.max(EDGE, win.width - figureSize - 140),
+    y: Math.max(TOP_SAFE, win.height - figureSize - 120),
   }
 }
 
 /**
  * Keep a spot the USER chose inside the window.
  */
-export function insideWindow(p: { x: number; y: number }, win: Viewport): { x: number; y: number } {
+export function insideWindow(p: { x: number; y: number }, win: Viewport, figureSize: number = SIZE): { x: number; y: number } {
   return {
-    x: Math.max(EDGE, Math.min(win.width - SIZE - EDGE, p.x)),
-    y: Math.max(TOP_SAFE, Math.min(win.height - SIZE - EDGE, p.y)),
+    x: Math.max(EDGE, Math.min(win.width - figureSize - EDGE, p.x)),
+    y: Math.max(TOP_SAFE, Math.min(win.height - figureSize - EDGE, p.y)),
   }
 }
 

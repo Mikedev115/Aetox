@@ -101,7 +101,7 @@
 
 <div class="page-shell" data-guide-place="videowork">
   <header class="page-head">
-    <button class="settings-back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
+    <button class="settings-back" data-guide="room.back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
     <div class="page-title">
       <!-- The badge covers the whole subject in one word, so it sits on the
            heading and nowhere else: repeating it on both cards would say the

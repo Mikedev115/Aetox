@@ -4,11 +4,11 @@
 // fact packs when delegating to the model adapter.
 
 import { GUIDE_CATALOG, CATALOG_TARGETS } from './catalog/data'
-import type { CatalogEntry, TargetCatalogEntry, ConceptCatalogEntry } from './catalog/types'
-import { GUIDE_MAP, guideText } from './map'
-import { GUIDE_ROUTES, type GuideRouteId } from './routes'
+import type { CatalogEntry, TargetCatalogEntry, ConceptCatalogEntry, RouteCatalogEntry } from './catalog/types'
+import { GUIDE_MAP, guideElement, guideEntry, guideText } from './map'
+import { GUIDE_ROUTES, routeForIntent, type GuideRouteId } from './routes'
 import { currentPage, onScreen } from './where'
-import { nextStepTo, stepsTo, checkPrecondition } from './path'
+import { nextStepTo, stepsTo, checkPrecondition, resolveNavigation, type NavigationResolution } from './path'
 import { t } from '../i18n.svelte'
 import { th } from '../locales/th'
 import { en } from '../locales/en'
@@ -16,7 +16,7 @@ import { zh } from '../locales/zh'
 
 export type FactItem = {
   id: string
-  kind: 'target' | 'concept'
+  kind: 'target' | 'concept' | 'route'
   name: string
   what: string
   why: string
@@ -73,10 +73,11 @@ export class GuideCore {
       const r = el.getBoundingClientRect()
       if (r.width > 0 && r.height > 0) {
         const entry = CATALOG_TARGETS.find((e) => e.id === id)
+        const dynamic = guideEntry(id)
         visible.push({
           id,
-          name: t(`guide.${id}.name` as any) || id,
-          safe: entry?.policy.safe ?? false,
+          name: guideText(id, 'name') || id,
+          safe: entry?.policy.safe ?? dynamic?.safe ?? false,
         })
       }
     }
@@ -85,15 +86,36 @@ export class GuideCore {
   }
 
   /**
-   * Describe a target or concept using exact grounded facts and evidence.
+   * Describe a target, concept, or route using exact grounded facts and evidence.
    */
   describe(id: string): FactItem | null {
     const entry = GUIDE_CATALOG.find((e) => e.id === id)
-    if (!entry) return null
+    if (!entry) {
+      const dynamic = guideEntry(id)
+      if (!dynamic) return null
+      return {
+        id,
+        kind: 'target',
+        name: guideText(id, 'name') || id,
+        what: guideText(id, 'what'),
+        why: guideText(id, 'why'),
+        safe: dynamic.safe,
+      }
+    }
 
-    const name = guideText(id, 'name') || id
-    const what = guideText(id, 'what')
-    const why = guideText(id, 'why')
+    let name = ''
+    let what = ''
+    let why = ''
+
+    if (entry.kind === 'route') {
+      name = t(entry.nameKey as any) || entry.id
+      what = t(entry.descKey as any) || ''
+      why = entry.evidence?.ref ? `Spec reference: ${entry.evidence.ref}` : ''
+    } else {
+      name = guideText(id, 'name') || id
+      what = guideText(id, 'what')
+      why = guideText(id, 'why')
+    }
 
     return {
       id,
@@ -104,6 +126,13 @@ export class GuideCore {
       ref: entry.evidence?.ref,
       safe: entry.kind === 'target' ? entry.policy.safe : false,
     }
+  }
+
+  /**
+   * Determine navigation steps, availability, preconditions, and next button for any target.
+   */
+  route(targetId: string): NavigationResolution {
+    return resolveNavigation(targetId)
   }
 
   /**
@@ -135,35 +164,15 @@ export class GuideCore {
 
     const qLower = q.toLowerCase()
 
-    // 1. Route commands
-    if (/(^|\s)(รอบแรก|พาดู|ทัวร์|first|tour|walk|新手引导)(\s|$)/i.test(qLower)) {
-      const route = GUIDE_ROUTES.first
+    // 1. Prepared route commands. The route resolver owns the vocabulary;
+    // neither this core nor a model gets a second copy of the tour map.
+    const routeId = routeForIntent(qLower)
+    if (routeId) {
+      const route = GUIDE_ROUTES[routeId]
       const stopId = route.stops[0]
       return {
         stopId,
-        route: { id: 'first', at: 0 },
-        sentence: `${t(`guide.${stopId}.name` as any)} — ${t(`guide.${stopId}.what` as any)}`,
-        isExact: true,
-        confidence: 100,
-      }
-    }
-    if (/(^|\s)(ต่อสมอง|ใส่คีย์|brain|api key|provider|连接大脑|模型设置)(\s|$)/i.test(qLower)) {
-      const route = GUIDE_ROUTES.brain
-      const stopId = route.stops[0]
-      return {
-        stopId,
-        route: { id: 'brain', at: 0 },
-        sentence: `${t(`guide.${stopId}.name` as any)} — ${t(`guide.${stopId}.what` as any)}`,
-        isExact: true,
-        confidence: 100,
-      }
-    }
-    if (/(^|\s)(ตั้งทีม|พนักงาน|team|staff|团队|配置员工)(\s|$)/i.test(qLower)) {
-      const route = GUIDE_ROUTES.team
-      const stopId = route.stops[0]
-      return {
-        stopId,
-        route: { id: 'team', at: 0 },
+        route: { id: routeId, at: 0 },
         sentence: `${t(`guide.${stopId}.name` as any)} — ${t(`guide.${stopId}.what` as any)}`,
         isExact: true,
         confidence: 100,
@@ -237,7 +246,7 @@ export class GuideCore {
       }
 
       // Localized names in th, en, zh
-      const nameKey = `guide.${entry.id}.name`
+      const nameKey = entry.kind === 'route' ? entry.nameKey : `guide.${entry.id}.name`
       for (const dict of localeDicts) {
         const localized = ((dict as Record<string, string>)[nameKey] ?? '').toLowerCase()
         if (!localized) continue
@@ -260,13 +269,27 @@ export class GuideCore {
         }
       }
 
-      if (score > bestScore || (score === bestScore && entry.kind === 'concept')) {
+      if (score > bestScore || (score === bestScore && (entry.kind === 'concept' || entry.kind === 'route'))) {
         bestScore = score
         bestEntry = entry
       }
     }
 
     if (bestEntry && bestScore >= 20) {
+      if (bestEntry.kind === 'route') {
+        const routeId = bestEntry.id as GuideRouteId
+        const stopId = bestEntry.stops[0]
+        const name = t(bestEntry.nameKey as any) || bestEntry.id
+        const what = t(bestEntry.descKey as any) || ''
+        return {
+          stopId,
+          route: { id: routeId, at: 0 },
+          sentence: `${name} — ${what}`,
+          isExact: bestScore >= 50,
+          confidence: bestScore,
+        }
+      }
+
       const name = t(`guide.${bestEntry.id}.name` as any)
       const what = t(`guide.${bestEntry.id}.what` as any)
 
@@ -359,7 +382,7 @@ export class GuideCore {
     }
 
     if (typeof document === 'undefined') return { ok: false, message: '' }
-    const el = document.querySelector<HTMLElement>('[data-guide=' + JSON.stringify(id) + ']')
+    const el = guideElement(id)
     if (!el) return { ok: false, message: t('guide.notOnScreen') }
 
     setTimeout(() => {

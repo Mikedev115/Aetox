@@ -60,9 +60,10 @@ const decided: Record<string, Kind> = {
   // latest press lands, and arriveAt has no say in it — a walk is the thing
   // that makes arriveAt run.
   walkingTo: 'app',
+  capabilityIntent: 'app',
 
   // ---- which chat is which ----
-  openSession: 'identity', turnSession: 'identity', parked: 'identity',
+  openSession: 'identity', openingSession: 'identity', turnSession: 'identity', parked: 'identity',
   // Not one chat's state but a map ABOUT chats, like `parked` above it, and
   // written by the switch itself: arriveAt clears the arriving chat's mark,
   // which is what "opened, therefore read" means. Nothing to park and nothing
@@ -71,6 +72,7 @@ const decided: Record<string, Kind> = {
 
   // ---- the box in front of the user ----
   pendingImages: 'composer', pendingContexts: 'composer', pendingFiles: 'composer',
+  composerText: 'composer',
 
   // ---- dropped, then asked for again ----
   // Every one of these has an engine-side reader, which is what makes dropping
@@ -80,7 +82,7 @@ const decided: Record<string, Kind> = {
   // wrong at the one door without it (afterNewSession), dropped inside arriveAt
   // itself now, beside `plan`.
   sessionSpend: 'dropped', undoFiles: 'dropped', taskChips: 'dropped',
-  sessionError: 'dropped', desk: 'dropped', chair: 'dropped', team: 'dropped', space: 'dropped',
+  sessionError: 'dropped', desk: 'dropped', chair: 'dropped', team: 'dropped', transport: 'dropped', space: 'dropped',
   stance: 'dropped', model: 'dropped', restorePoints: 'dropped',
   // The plan (desktop/plan.go). Dropped and re-read through `SessionPlan`,
   // because it is a row keyed by session id and the engine can always be asked
@@ -94,6 +96,7 @@ const decided: Record<string, Kind> = {
   // The plan's closing reports ride with it: same row-keyed store on the Go
   // side, cleared in the same breath and asked for again by refreshPlan.
   planReports: 'dropped',
+  handoff: 'dropped',
 
   // ---- carried across, mid-flight ----
   chat: 'parked-live', awaitingReply: 'parked-live', agentStatus: 'parked-live',

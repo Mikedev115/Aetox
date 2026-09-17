@@ -52,11 +52,20 @@ const githubRow = (over: Record<string, unknown> = {}) => [{
   id: 'github', label: 'GitHub', kind: 'token',
   token_url: 'https://github.com/settings/tokens/new',
   connected: false, env_override: false, for: [], configured: false,
+  system: true,
   tools: ['github', 'plugin_install'],
   ...over,
 }]
 
 const connectedRow = (over: Record<string, unknown> = {}) => githubRow({
+  connected: true, login: 'mike', source: 'connection', for: ['coding'], configured: true, ...over,
+})
+
+// The register remains generic enough for a future connection that genuinely
+// has audiences. GitHub itself is not that example anymore: it is a system
+// credential and must not draw or persist this second gate.
+const placeableGithubRow = (over: Record<string, unknown> = {}) => githubRow({ system: false, ...over })
+const connectedPlaceableRow = (over: Record<string, unknown> = {}) => placeableGithubRow({
   connected: true, login: 'mike', source: 'connection', for: ['coding'], configured: true, ...over,
 })
 
@@ -67,6 +76,15 @@ const selfHostedRow = (over: Record<string, unknown> = {}) => [{
   connected: false, env_override: false, for: [], configured: false,
   tools: ['n8n_workflow_list', 'n8n_workflow_create'],
   needs_base_url: true, base_url_hint: 'http://localhost:5678',
+  ...over,
+}]
+
+const telegramRow = (over: Record<string, unknown> = {}) => [{
+  id: 'telegram', label: 'Telegram', kind: 'token',
+  connected: true, login: '@Aetoxbot', source: 'connection', env_override: false,
+  for: [], configured: false, tools: [], channel: true, paired: true,
+  channel_desk: 'assistant', channel_assistant: 'มะลิ',
+  channel_provider: 'openai', channel_model: 'gpt-5.6',
   ...over,
 }]
 
@@ -93,7 +111,7 @@ describe('where the register is', () => {
   // A door can land here before the room's own load has brought the targets;
   // a draft built over none would tick nothing, so the page fetches them.
   it('fetches the targets itself when the door arrives first', async () => {
-    vi.mocked(Connections).mockResolvedValue(githubRow() as any)
+    vi.mocked(Connections).mockResolvedValue(placeableGithubRow() as any)
     cockpit.capabilityIntent = { page: 'connections' }
     const { container } = render(Capability, { onClose: () => {} })
     await waitFor(() => expect(screen.getByText('GitHub')).toBeTruthy())
@@ -168,7 +186,7 @@ describe('disconnecting', () => {
   // shown once at creation and never again, so a mis-click costs a trip to
   // another program to mint a new one.
   it('asks before throwing a credential away', async () => {
-    vi.mocked(Connections).mockResolvedValue(connectedRow() as any)
+    vi.mocked(Connections).mockResolvedValue(connectedPlaceableRow() as any)
     const { container } = await openConnections()
     await waitFor(() => expect(screen.getByText('เชื่อมแล้วในชื่อ mike')).toBeTruthy())
     await expandRow(container)
@@ -214,7 +232,7 @@ describe('the register', () => {
   // A connected row says where it reaches without being opened, by name —
   // "2 desks" would make you open it to find out which two.
   it('names the desks on the collapsed row of a connected service', async () => {
-    vi.mocked(Connections).mockResolvedValue(connectedRow() as any)
+    vi.mocked(Connections).mockResolvedValue(connectedPlaceableRow() as any)
     const { container } = await openConnections()
 
     await waitFor(() => expect(screen.getByText('เชื่อมแล้วในชื่อ mike')).toBeTruthy())
@@ -224,7 +242,7 @@ describe('the register', () => {
   // Never placed is not "off" — it is carried everywhere, and the row must say
   // which of the two it is.
   it('says every desk on a connected service nobody has placed yet', async () => {
-    vi.mocked(Connections).mockResolvedValue(connectedRow({ for: [], configured: false }) as any)
+    vi.mocked(Connections).mockResolvedValue(connectedPlaceableRow({ for: [], configured: false }) as any)
     const { container } = await openConnections()
 
     await waitFor(() => expect(screen.getByText('เชื่อมแล้วในชื่อ mike')).toBeTruthy())
@@ -235,7 +253,7 @@ describe('the register', () => {
   // Connected and placed nowhere looks healthy and reaches no one — the one
   // state worth interrupting for, same as the MCP cards call out.
   it('calls out a connection that serves nobody', async () => {
-    vi.mocked(Connections).mockResolvedValue(connectedRow({ for: [] }) as any)
+    vi.mocked(Connections).mockResolvedValue(connectedPlaceableRow({ for: [] }) as any)
     const { container } = await openConnections()
 
     await waitFor(() => expect(screen.getByText('ไม่มีใคร')).toBeTruthy())
@@ -243,7 +261,7 @@ describe('the register', () => {
   })
 
   it('offers every desk and agent as a placement, desks picked and agents not', async () => {
-    vi.mocked(Connections).mockResolvedValue(githubRow() as any)
+    vi.mocked(Connections).mockResolvedValue(placeableGithubRow() as any)
     const { container } = await openConnections()
     await waitFor(() => expect(screen.getByText('ยังไม่ได้เชื่อม')).toBeTruthy())
     await expandRow(container)
@@ -252,6 +270,22 @@ describe('the register', () => {
     expect(chips.map((c) => c.textContent?.trim())).toEqual(['ผู้ช่วย', 'โค้ด', 'researcher'])
     // An agent is handed things on purpose; a desk is where work already happens.
     expect(chips.map((c) => c.getAttribute('aria-pressed'))).toEqual(['true', 'true', 'false'])
+  })
+
+  it('does not draw or send a second audience gate for a system connection', async () => {
+    vi.mocked(Connections).mockResolvedValue(githubRow() as any)
+    const { container } = await openConnections()
+    await waitFor(() => expect(screen.getByText('GitHub')).toBeTruthy())
+    await expandRow(container)
+
+    expect(container.querySelector('.conn-targets')).toBeNull()
+    expect(container.querySelector('.mcp-badge')).toBeNull()
+
+    const field = container.querySelector('input[type="password"]') as HTMLInputElement
+    await fireEvent.input(field, { target: { value: 'ghp_system' } })
+    await fireEvent.click(screen.getByText('เชื่อม'))
+    await waitFor(() =>
+      expect(vi.mocked(ConnectAccount)).toHaveBeenCalledWith('github', 'ghp_system', '', []))
   })
 
   // A service Aetox hosts nowhere cannot be reached until the user says where
@@ -296,8 +330,8 @@ describe('the register', () => {
 
   it('connects with the pasted token and the chosen desks in one call', async () => {
     vi.mocked(Connections)
-      .mockResolvedValueOnce(githubRow() as any)
-      .mockResolvedValue(connectedRow() as any)
+      .mockResolvedValueOnce(placeableGithubRow() as any)
+      .mockResolvedValue(connectedPlaceableRow() as any)
     const { container } = await openConnections()
     await waitFor(() => expect(screen.getByText('ยังไม่ได้เชื่อม')).toBeTruthy())
     await expandRow(container)
@@ -321,7 +355,7 @@ describe('the register', () => {
   // Flipping a switch on a connected row writes straight through. It must not
   // go via the connect path, which would send the token field along with it.
   it('moves a connected account between desks without touching its token', async () => {
-    vi.mocked(Connections).mockResolvedValue(connectedRow() as any)
+    vi.mocked(Connections).mockResolvedValue(connectedPlaceableRow() as any)
     const { container } = await openConnections()
     await waitFor(() => expect(screen.getByText('เชื่อมแล้วในชื่อ mike')).toBeTruthy())
     await expandRow(container)
@@ -393,5 +427,53 @@ describe('the register', () => {
     await expandRow(container)
 
     expect(container.textContent).toContain('แต่ Aetox ใช้บัญชีที่เชื่อมไว้')
+  })
+})
+
+describe('bot channels name their real destination', () => {
+  it('shows the runtime assistant identity, model, desk, and isolated history', async () => {
+    vi.mocked(Connections).mockResolvedValue(telegramRow() as any)
+    const { container } = await openConnections()
+    await waitFor(() => expect(screen.getByText('Telegram')).toBeTruthy())
+    await expandRow(container)
+
+    expect(screen.getByText('ปลายทางจริง · ผู้ช่วยหลัก “มะลิ”')).toBeTruthy()
+    expect(container.textContent).toContain('openai · gpt-5.6')
+    expect(container.textContent).toContain('หน้าผู้ช่วยเท่านั้น')
+    expect(container.textContent).toContain('ห้องนี้มีประวัติของตัวเอง')
+    expect(container.querySelector('.conn-route')?.getAttribute('data-channel-desk')).toBe('assistant')
+    expect(container.querySelector('.conn-route-icon .scope-face .mascot')).toBeTruthy()
+    expect(container.textContent).toContain('พร้อมใช้งาน · ห้องนี้คุยกับผู้ช่วยหลัก “มะลิ”')
+  })
+
+  it('separates a connected token from authorizing the room', async () => {
+    vi.mocked(Connections).mockResolvedValue(telegramRow({ paired: false, pairing_code: '941012' }) as any)
+    const { container } = await openConnections()
+    await waitFor(() => expect(screen.getByText('Telegram')).toBeTruthy())
+    await expandRow(container)
+
+    expect(container.textContent).toContain('Bot token เชื่อมแล้ว · เหลืออนุญาตห้องนี้ครั้งเดียว')
+    expect(container.textContent).toContain('/pair 941012')
+    expect(container.textContent).toContain('กันคนอื่นที่ค้นเจอชื่อบอท')
+  })
+
+  it('draws the real service marks and a neutral fallback for an unknown future service', async () => {
+    vi.mocked(Connections).mockResolvedValue([
+      ...githubRow(),
+      ...telegramRow(),
+      ...telegramRow({ id: 'discord', label: 'Discord' }),
+      ...selfHostedRow(),
+      ...selfHostedRow({ id: 'windmill', label: 'Windmill' }),
+      ...githubRow({ id: 'future-service', label: 'Future service' }),
+    ] as any)
+    const { container } = await openConnections()
+    await waitFor(() => expect(screen.getByText('Future service')).toBeTruthy())
+
+    expect(container.querySelectorAll('.reg-head').length).toBe(6)
+    expect(Array.from(container.querySelectorAll('[data-connection-mark]')).map((el) =>
+      el.getAttribute('data-connection-mark'))).toEqual([
+      'github', 'telegram', 'discord', 'n8n', 'windmill', 'fallback',
+    ])
+    expect(container.querySelectorAll('.conn-service-icon svg').length).toBe(6)
   })
 })

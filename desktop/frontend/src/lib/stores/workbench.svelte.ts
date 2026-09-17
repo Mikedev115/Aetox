@@ -916,6 +916,14 @@ async function loadFileTab(tab: WorkbenchTab, path: string, keepPane = false): P
     try {
       next.content = await ReadFile(path)
     } catch (err) {
+      if (/\b(?:is a directory|EISDIR)\b/i.test(String(err))) {
+        // A directory is navigation, never an unreadable document. Drop the
+        // speculative file tab before it can be persisted and take the user to
+        // the project tree instead.
+        removeTab(tab.id)
+        openFilesTab()
+        return
+      }
       // Not an editor full of an error message. The file is fine — this app
       // just is not the thing that opens it.
       next.unreadable = String(err)

@@ -13,10 +13,12 @@
 // ในอนาคต ทำสถาปัตยกรรมให้ดี"*).
 
 import type { Locale } from '../i18n.svelte'
+import { clampSize, SIZE_MIN, SIZE_MAX } from '../mascot/companionSetting.svelte'
+import { GEOMETRY } from './geometry'
 
 const KEY = 'guidePrefs'
 
-export type ThinkLevel = 'low' | 'medium' | 'high'
+export type ThinkLevel = string
 
 export type GuidePrefs = {
   /** '' means "whatever the chat is using" — the ordinary case, and the one
@@ -30,6 +32,10 @@ export type GuidePrefs = {
   lang: 'auto' | Locale
   /** Read answers aloud, through the window's one player. */
   voice: boolean
+  /** Figure size in logical pixels. It uses the companion's proven resize
+   *  limits, but keeps its own value because the guide and companion are
+   *  separate tools. */
+  size: number
   /** Where the user dragged the figure to, or null for the corner it picks
    *  itself. A setting and not a memory, by the same test as everything else
    *  here: it is a choice about the tool, made on purpose, and a figure that
@@ -39,7 +45,12 @@ export type GuidePrefs = {
   spot: { x: number; y: number } | null
 }
 
-const DEFAULTS: GuidePrefs = { provider: '', model: '', think: 'low', lang: 'auto', voice: false, spot: null }
+const VALID_THINKS = new Set(['', 'off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra', 'deep'])
+
+export const GUIDE_SIZE_DEFAULT = GEOMETRY.FIGURE_SIZE
+export { SIZE_MIN as GUIDE_SIZE_MIN, SIZE_MAX as GUIDE_SIZE_MAX }
+
+const DEFAULTS: GuidePrefs = { provider: '', model: '', think: 'low', lang: 'auto', voice: false, size: GUIDE_SIZE_DEFAULT, spot: null }
 
 function load(): GuidePrefs {
   try {
@@ -52,9 +63,10 @@ function load(): GuidePrefs {
     return {
       provider: typeof v.provider === 'string' ? v.provider : DEFAULTS.provider,
       model: typeof v.model === 'string' ? v.model : DEFAULTS.model,
-      think: v.think === 'medium' || v.think === 'high' || v.think === 'low' ? v.think : DEFAULTS.think,
+      think: typeof v.think === 'string' && VALID_THINKS.has(v.think) ? v.think : DEFAULTS.think,
       lang: typeof v.lang === 'string' ? (v.lang as GuidePrefs['lang']) : DEFAULTS.lang,
       voice: typeof v.voice === 'boolean' ? v.voice : DEFAULTS.voice,
+      size: typeof v.size === 'number' && Number.isFinite(v.size) ? clampSize(v.size) : DEFAULTS.size,
       // Both numbers or nothing: half a spot is not a spot, and a NaN here
       // would put the figure somewhere no clamp can bring it back from.
       spot:

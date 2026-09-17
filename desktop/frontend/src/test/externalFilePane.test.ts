@@ -83,4 +83,15 @@ describe('the file pane', () => {
     expect(screen.queryByText(/is gone/i)).toBeNull()
     expect(screen.queryByRole('button')).toBeNull()
   })
+
+  it('describes a directory as a folder and offers to open that folder', async () => {
+    render(ExternalFilePane, { path: 'backend/tests', reason: '"backend/tests" is a directory' })
+
+    const button = await screen.findByRole('button', { name: /open folder on my computer/i })
+    expect(screen.getByText(/path is a folder/i)).toBeTruthy()
+    expect(screen.queryByText(/file can’t be shown/i)).toBeNull()
+
+    await fireEvent.click(button)
+    expect(OpenFileExternally).toHaveBeenCalledWith('backend/tests')
+  })
 })

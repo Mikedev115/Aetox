@@ -1,7 +1,7 @@
 <script lang="ts">
   // รู้จักกับ Aetox — the tour a first run plays after the language is picked
   // and before the wizard asks about a model, and the one ตั้งค่า › เกี่ยวกับ
-  // replays. Nine scenes, one idea each, every one drawn on the real rig and
+  // replays. Four scenes, one idea each, every one drawn on the real rig and
   // the real stylesheets (DECISIONS §279; the words are docs/FIRST-RUN-TOUR.md).
   //
   // Each scene plays its beats on a timer; ถัดไป / ← → / the dots move
@@ -33,13 +33,19 @@
   const A = headOptions('assistant')
   const C = headOptions('coding')
 
-  const SCENE_COUNT = 9
+  // First run keeps the three ideas required to make the next decision, plus
+  // the measured harness comparison the owner wants people to see. Naming,
+  // memory internals and teams stay available in the app instead of delaying
+  // setup.
+  const SCENES: number[] = [0, 1, 4, 7]
+  const SCENE_COUNT = SCENES.length
   // How many beats each scene plays, and the gap between them. Slow on
   // purpose (owner, 14 ก.ย.: "เอาช้านิดนึง").
-  const BEATS = [4, 4, 3, 11, 7, 5, 8, 5, 2]
+  const BEATS = [4, 4, 7, 5]
   const GAP = 1400
 
   let scene = $state(0)
+  const sourceScene = $derived(SCENES[scene])
   let beat = $state(0)
   let timer: ReturnType<typeof setTimeout> | undefined
   let botName = $state('')
@@ -95,9 +101,8 @@
     { name: 'deepresearch', icon: 'search', hue: 150 }, { name: 'editor', icon: 'slidersHorizontal', hue: 195 },
     { name: 'video', icon: 'clapperboard', hue: 235 },
   ]
-  const HELPERS = [
+  const HELPERS: { name: string; icon: string; ro?: boolean }[] = [
     { name: 'explore', icon: 'search' }, { name: 'general', icon: 'wrench' },
-    { name: 'reviewer', icon: 'eye', ro: true }, { name: 'tester', icon: 'check', ro: true },
   ]
 
   // ---- scene 3: three cards, where each goes ------------------------------
@@ -146,7 +151,7 @@
     { icon: 'settings', key: 'tour.itemSettings' }, { icon: 'shield', key: 'tour.itemKeys' },
   ] as const
   let local = $state(false)
-  $effect(() => { if (scene === 4) local = beat >= 6 })
+  $effect(() => { if (sourceScene === 4) local = beat >= 6 })
 
   // ---- scene 6: a team, then one job handed to it --------------------------
   const TEAM = [
@@ -213,9 +218,9 @@
 
   <div class="ob-screen tour-screen">
     {#key scene}
-    <div class="tour-scene" in:fly={{ x: dir * 36, duration: 460, delay: 160, easing: cubicOut }} out:fade={{ duration: 200 }}>
+    <div class="tour-scene" class:tour-scene-perf={sourceScene === 7} in:fly={{ x: dir * 36, duration: 460, delay: 160, easing: cubicOut }} out:fade={{ duration: 200 }}>
 
-    {#if scene === 0}
+    {#if sourceScene === 0}
       <div class="stage t-open">
         <div class="win" in:scale={{ start: .92, duration: 600, easing: cubicOut }}>
           <div class="win-bar"><i></i><i></i><i></i><span>Aetox</span></div>
@@ -289,7 +294,7 @@
       <h2>{t('tour.s0Title')}</h2>
       <p class="ob-sub">{t('tour.s0Sub')}</p>
 
-    {:else if scene === 1}
+    {:else if sourceScene === 1}
       <div class="stage split" class:apart={beat >= 1}>
         <div class="twho">
           <Mascot {...A} pose="idle" size={120} />
@@ -305,7 +310,7 @@
       <h2>{t('tour.s1Title')}</h2>
       <p class="ob-sub"><b>{t('desk.assistant')}</b> {t('tour.s1A')}<br /><b>{t('desk.coding')}</b> {t('tour.s1C')}<br />{#if beat >= 4}<span in:fade>{t('tour.s1Own')}</span>{/if}</p>
 
-    {:else if scene === 2}
+    {:else if sourceScene === 2}
       <div class="stage">
         <div class="hero"><Mascot {...A} pose={youName.trim() ? 'greeting' : 'asking'} size={130} look /></div>
         {#if youName.trim() || botName.trim()}
@@ -321,7 +326,7 @@
       </div>
       <p class="ob-sub small">{t('tour.s2Note')}</p>
 
-    {:else if scene === 3}
+    {:else if sourceScene === 3}
       <div class="stage mem">
         <div class="boxes">
           <div class="tbox you" class:lit={inBox.you} bind:this={boxEl.you}><Icon name="circleUser" size={16} /><b>{t('settings.you')}</b><small>{t('tour.boxYouSub')}</small>{#if inBox.you}<i class="line" in:scale={{ start: .6, duration: 420, easing: backOut }}>{t('tour.card1')}</i>{/if}</div>
@@ -355,7 +360,7 @@
       <h2>{t('tour.s3Title')}</h2>
       <p class="ob-sub">{t('tour.s3Sub')}</p>
 
-    {:else if scene === 4}
+    {:else if sourceScene === 4}
       <div class="stage data">
         <div class="pc" in:scale={{ start: .94, duration: 500, easing: cubicOut }}>
           <div class="screen" class:sealed={local}>
@@ -409,7 +414,7 @@
       <h2>{t('tour.s4Title')}</h2>
       <p class="ob-sub">{t('tour.s4Sub')}</p>
 
-    {:else if scene === 5}
+    {:else if sourceScene === 5}
       <div class="stage org">
         <div class="chart">
           <div class="band b-head">
@@ -444,7 +449,7 @@
         {#if beat >= 4}<span in:fade>{t('tour.s5Helpers')}</span>{/if}
       </p>
 
-    {:else if scene === 6}
+    {:else if sourceScene === 6}
       <div class="stage team">
         <div class="t-head">
           <Mascot {...A} pose={tPhase >= 6 ? 'success' : tPhase >= 3 ? 'planning' : 'thinking'} size={110} />
@@ -479,7 +484,7 @@
       <h2>{t('tour.s6Title', { name: shown })}</h2>
       <p class="ob-sub">{t('tour.s6Sub', { name: shown })}<br />{#if tPhase >= 7}<span in:fade>{t('tour.s6Sub2', { name: shown })}</span>{/if}</p>
 
-    {:else if scene === 7}
+    {:else if sourceScene === 7}
       <div class="stage perf">
         <div class="bars">
           <div class="bars-h"><Icon name="zap" size={12} /> {t('tour.s7Head')} <small>{t('tour.s7HeadSub')}</small></div>
@@ -512,6 +517,11 @@
       </div>
       <h2>{t('tour.s7Title')}</h2>
       <p class="ob-sub">{t('tour.s7Sub')}<br />{#if beat >= 3}<span in:fade>{t('tour.s7Sub2')}</span>{/if}</p>
+      <div class="ob-stack tight tour-perf-action">
+        <button type="button" class="ob-big primary tour-start" onclick={finish}>
+          <span class="ob-bigt">{flow === 'setup' ? t('tour.goSetup') : t('tour.close')}</span>
+        </button>
+      </div>
 
     {:else if flow === 'setup'}
       <div class="stage split apart">

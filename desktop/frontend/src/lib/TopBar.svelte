@@ -153,6 +153,7 @@
 <div class="topbar">
   <button
     class="icobtn tip-l" data-guide="topbar.sidebar_btn" aria-label={sidebarCollapsed ? t('topbar.showSidebar') : t('topbar.hideSidebar')}
+    aria-expanded={!sidebarCollapsed}
     data-tip="{t('topbar.toggleSidebarTip')} · {shortcutLabel('toggleSidebar')}" onclick={onToggleSidebar}
   >
     {@render panelIcon(!sidebarCollapsed, false)}

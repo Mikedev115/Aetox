@@ -205,7 +205,7 @@
       <div class="folder-note">{t('chat.agentSwitchNote')}</div>
     </div>
   {/if}
-  <button type="button" class="focus-chip focus-btn" aria-expanded={open === 'who'} title={t('chat.pickWho')}
+  <button data-guide="composer.who" type="button" class="focus-chip focus-btn" aria-expanded={open === 'who'} title={t('chat.pickWho')}
     onclick={() => toggle('who')}>
     <span class="ic">
       <!-- The chip's face carries its rank too (owner, 14 ก.ย.: "ทำไมไม่แสดง")
@@ -265,7 +265,7 @@
         {#if teams.length > 0}<div class="folder-note">{t('chat.teamSwitchNote')}</div>{/if}
       </div>
     {/if}
-    <button type="button" class="focus-chip focus-btn" aria-expanded={open === 'team'} title={t('chat.pickTeam')}
+    <button data-guide="composer.team" type="button" class="focus-chip focus-btn" aria-expanded={open === 'team'} title={t('chat.pickTeam')}
       onclick={() => toggle('team')}>
       <span class="ic"><Icon name="users" size={13} /></span>
       <span class="t">{cockpit.team || t('chat.noTeam')}</span>

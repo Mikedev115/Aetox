@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { cockpit, newSession, startTaskChip } from '../lib/stores/cockpit.svelte'
 import { shell } from '../lib/shell.svelte'
-import { NewSession, NewSessionAt, NewSessionInSpace, DismissTaskChip } from './mocks/wailsApp'
+import { NewSession, NewSessionAt, DismissTaskChip } from './mocks/wailsApp'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -51,18 +51,17 @@ describe('new chat', () => {
     expect(cockpit.activeView).toBe('chat')
   })
 
-  // A project is where the work is filed, not a room: a new chat about the
-  // same work goes in the same folder (owner, 13 ก.ย. — pressing + inside a
-  // project used to land on the storefront's blank page).
-  it('stays inside the project it was pressed in', async () => {
+  // Projects and chats have separate permanent headings now. The pencil under
+  // Chats always opens a general chat; clicking the folder is how work starts
+  // inside that project.
+  it('leaves the project for a general chat', async () => {
     cockpit.space = 'aetox-promo'
     cockpit.desk = 'assistant'
 
     await newSession()
 
-    expect(vi.mocked(NewSessionInSpace)).toHaveBeenCalledWith('aetox-promo')
-    expect(vi.mocked(NewSessionAt)).not.toHaveBeenCalled()
-    expect(cockpit.space).toBe('aetox-promo')
+    expect(vi.mocked(NewSessionAt)).toHaveBeenCalledWith('assistant')
+    expect(cockpit.space).toBe('')
     expect(cockpit.desk).toBe('assistant')
     expect(cockpit.activeView).toBe('chat')
   })

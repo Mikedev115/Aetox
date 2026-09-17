@@ -14,11 +14,8 @@
   import TaskTimeline from './TaskTimeline.svelte'
   import BackgroundWork from './BackgroundWork.svelte'
   import Palette from './Palette.svelte'
-  import Logo from './Logo.svelte'
   import { onMount, tick, untrack } from 'svelte'
   import { cubicOut } from 'svelte/easing'
-  import Mascot from './mascot/Mascot.svelte'
-  import { headOf, headOptions } from './mascot/avatarPrefs.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
   import { lookOf } from './mascot/agentLook'
   import StationPick from './StationPick.svelte'
@@ -28,7 +25,7 @@
   import { shell } from './shell.svelte'
   import {
     EnabledProviders, SupportedThinkLevels,
-    ListModelsForProvider, PriceModels, ModelPriceSource, RequiresAPIKey, AcceptsAPIKey, HasAPIKey, PickAttachments,
+    ListModelsForProvider, ServiceTiersFor, PriceModels, ModelPriceSource, RequiresAPIKey, AcceptsAPIKey, HasAPIKey, PickAttachments,
     GetContextBreakdown, CompactSession, GuideTopics, RunChatCommand, RunChatScript, ListTeams, ChairStarters, DeskStarters, CurrentSessionID,
     Shells, CurrentShell, SetShell, EnginesFor, UseEngine, VerifyConnection,
     GitBranches, GitSwitchBranch, GitCreateBranch, GetProjectStatus,
@@ -48,13 +45,14 @@
   import { EventsOn } from '../../wailsjs/runtime/runtime'
   import { renderMarkdown } from './markdown'
   import { filePath, fileURL } from './fileUrl'
-  import { openUrlInWorkbench, openFileTab, openPlanTab, openArtifactsTab, openGitTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
+  import { isDirectoryPathSubject, isFilePathSubject } from './toolSubjectPath'
+  import { openUrlInWorkbench, openFileTab, openFilesTab, openPlanTab, openArtifactsTab, openGitTab, setTabDragPayload, TAB_DRAG_MIME } from './stores/workbench.svelte'
   import {
     cockpit, attachImageFromPath, attachImageFromClipboard, clearPendingImage, attachTabContext, clearPendingContext,
     attachFileFromPath, clearPendingFile, fileKind, attachmentPreview,
     openProject, openFolder, clearProjectFocus, cancelTurn, answerAsk, queuedMessages,
     addProjectFolder, removeProjectFolder,
-    retryActiveProvider, undoLastTurn, rewindTo, pendingRestore, switchApprovalMode,
+    retryActiveProvider, undoLastTurn, rewindTo, pendingRestore, switchApprovalMode, switchServiceTier,
     startTaskChip, dismissTaskChip,
     stopBackgroundTask, stopBackgroundRun, stopQueuedTasks,
     retryFailedTurn, editFailedTurn, regenerateReply, switchVariant, resendEdited, rateReply,
@@ -69,6 +67,7 @@
   import { extractChangedFiles } from './fileChange'
   import Icon from './Icon.svelte'
   import ProviderMark from './ProviderMark.svelte'
+  import ConnectionMark from './ConnectionMark.svelte'
   import { ICONS, type IconName } from './icons'
   import { startersFor, dealStarters, headlineFor, STARTER_SLOTS, TEACH_STARTER_KEY } from './starters'
   import { profile, loadProfileName } from './stores/profile.svelte'
@@ -127,6 +126,8 @@
     return `${h > 0 ? h + ':' : ''}${mm}:${String(s).padStart(2, '0')}`
   }
   let thinkLevels = $state<string[]>([])
+  type ServiceTierListing = { id: string; name: string; description: string }
+  let serviceTiers = $state<ServiceTierListing[]>([])
   let models = $state<string[]>([])
   // Whether the list above is "not fetched yet" or "fetched and empty". The row
   // draws differently for each, and without this flag every menu open flashed
@@ -888,6 +889,11 @@
       modelsLoading = false
     }
     models = Array.isArray(res) ? res : []
+    try {
+      serviceTiers = await ServiceTiersFor(provider, model.modelName) as ServiceTierListing[]
+    } catch {
+      serviceTiers = []
+    }
     // Prices for the list that is on screen, not for one fetched again. Not
     // awaited: the names are pickable before the money arrives, and a provider
     // that is slow about it must not hold the menu shut.
@@ -935,11 +941,19 @@
       /* backend not ready — next menu open retries */
     }
   }
+  async function refreshServiceTiers() {
+    try {
+      serviceTiers = await ServiceTiersFor(model.provider, model.modelName) as ServiceTierListing[]
+    } catch {
+      serviceTiers = []
+    }
+  }
   $effect(() => {
     const provider = model.provider
     const modelName = model.modelName
     if (!provider) return
     refreshThinkLevels()
+    refreshServiceTiers()
   })
 
   // A switch that throws outright (no engine at all — distinct from the
@@ -990,6 +1004,25 @@
     } catch (err) {
       switchError = String(err)
     }
+  }
+
+  async function handleServiceTierChange(value: string) {
+    switchError = ''
+    try {
+      await switchServiceTier(value)
+    } catch (err) {
+      switchError = String(err)
+    }
+  }
+
+  function serviceTierLabel(tier: ServiceTierListing): string {
+    const speed = tier.description.match(/\b\d+(?:\.\d+)?x\b/i)?.[0]?.replace(/x$/i, '×')
+    return speed ? `${tier.name} ${speed}` : tier.name
+  }
+
+  function activeServiceTierLabel(): string {
+    const tier = serviceTiers.find((item) => item.id === model.serviceTier)
+    return tier ? serviceTierLabel(tier) : t('chat.fastMode')
   }
 
   // Taking back a decision, not recovering from an error: the dials accept a
@@ -1382,7 +1415,7 @@
   // list upward (browser-controlled, not stylable), so these render as a
   // small custom dropdown instead, anchored with bottom:100% like the rest
   // of this popover.
-  let openDropdown = $state<'approval' | 'provider' | 'model' | 'thinkLevel' | ''>('')
+  let openDropdown = $state<'approval' | 'provider' | 'model' | 'thinkLevel' | 'serviceTier' | ''>('')
 
   // A model list is whatever the provider currently offers — Anthropic alone
   // returns a dozen names — so a menu that opens scrolled to the top shows the
@@ -1812,7 +1845,7 @@
       }
       if (s.range || s.label.startsWith('read') || s.label.startsWith('view_file')) return true
       const subj = s.subject || ''
-      if (subj && (subj.includes('/') || subj.includes('\\') || /\.[a-zA-Z0-9_-]+$/.test(subj))) {
+      if (subj && isFilePathSubject(subj)) {
         return true
       }
     }
@@ -1825,7 +1858,14 @@
     const fam = toolFamily(s)
     if (fam === 'write') return true
     if (s.name === 'write' || s.name === 'edit' || s.name === 'read' || s.name === 'view_file') return true
-    return subj.includes('/') || subj.includes('\\') || /\.[a-zA-Z0-9_-]+$/.test(subj)
+    return isFilePathSubject(subj)
+  }
+
+  function isDirSubject(s: ToolStep, subj: string): boolean {
+    if (!subj || isFileSubject(s, subj)) return false
+    // Directory subjects are useful navigation only for tools that inspect the
+    // workspace. A URL or an MCP subject containing a slash is not a folder.
+    return toolFamily(s) === 'read' && isDirectoryPathSubject(subj)
   }
   let copiedCmd = $state<string | null>(null)
   let copyTimeout: number | undefined
@@ -2236,7 +2276,9 @@
     return text.split('\n').map((l) => l.replace(/^\s*[-*•]\s*/, '').trim()).filter(Boolean)
   }
   function openOrigin(origin: { id: string; title: string }) {
-    void selectSession({ id: origin.id, title: origin.title, ago: '' })
+    // An origin link is an explicit request to reconstruct that stored chat,
+    // even if a stale/card-only surface currently carries the same session id.
+    void selectSession({ id: origin.id, title: origin.title, ago: '' }, true)
   }
   // Editing the question re-runs the exchange, which only works when there is a
   // recorded exchange to replace.
@@ -2336,10 +2378,15 @@
   // there is something to send, dimmed when there is not (owner, 13 ก.ย.:
   // "เพิ่มสีตรงนี้ได้ไหมจะได้ชัด").
   const canSend = $derived(
-    !!draft.trim() || cockpit.pendingImages.length > 0 || cockpit.pendingContexts.length > 0 || cockpit.pendingFiles.length > 0,
+    !cockpit.openingSession && (
+      !!draft.trim() || cockpit.pendingImages.length > 0 || cockpit.pendingContexts.length > 0 || cockpit.pendingFiles.length > 0
+    ),
   )
 
   function submit() {
+    // Until LoadSession settles the engine still points at the session we are
+    // leaving. Preserve the draft, but never send or answer an ask into it.
+    if (cockpit.openingSession) return
     // While the model is blocked on ask_user, typed text is the free-text answer.
     if (cockpit.ask) {
       if (draft.trim()) {
@@ -3450,7 +3497,7 @@
      blind is the one mistake here that costs something), a provider name does
      not, so those callers pass neither and render exactly as before. -->
 {#snippet upSelect(
-  id: 'approval' | 'provider' | 'model' | 'thinkLevel',
+  id: 'approval' | 'provider' | 'model' | 'thinkLevel' | 'serviceTier',
   // `icon` is a name from the shared Icon set; `mark` is a provider's own brand
   // mark. Kept as separate fields rather than one overloaded string — the two
   // draw from different registries, and a provider named like an icon would
@@ -3868,6 +3915,7 @@
   <span class="verb">{verbKey ? t(verbKey) : toolFallbackVerb(s)}</span>
   {#if subject}
     {@const canOpen = isFileSubject(s, subject)}
+    {@const canOpenDir = !canOpen && isDirSubject(s, subject)}
     <!-- The subject in mono, cut where the path stops locating and starts
          naming. `internal/skill/` is scaffolding the eye should skip; the file
          name at the end is the thing the row is about. One ink for both made
@@ -3887,6 +3935,23 @@
             e.preventDefault()
             e.stopPropagation()
             void openFileTab(subject, parts.tail)
+          }
+        }}>{#if parts.head}<span class="path">{parts.head}</span>{/if}{parts.tail}</span>
+    {:else if canOpenDir}
+      <span
+        role="button"
+        tabindex="0"
+        class="subj is-dir"
+        title={t('chat.openFolderInFiles') + ': ' + subject}
+        onclick={(e) => {
+          e.stopPropagation()
+          openFilesTab()
+        }}
+        onkeydown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            e.stopPropagation()
+            openFilesTab()
           }
         }}>{#if parts.head}<span class="path">{parts.head}</span>{/if}{parts.tail}</span>
     {:else}
@@ -4747,13 +4812,13 @@
        from the office or from a project is empty at the moment the user needs
        telling where they just landed, and without it the screen is the ordinary
        starter page. Reported as "มันพาเด้งมาหน้าหลัก แล้วโปรเจคก็หายไปเลย". -->
-  {#if cockpit.chair}
+  {#if !cockpit.openingSession && cockpit.chair}
     <div class="chair-strip">
       <Icon name="bot" size={14} />
       <span class="who">{t('chat.talkingTo', { name: cockpit.chair })}</span>
       <button type="button" class="back-office" onclick={() => setActiveView('office')}>{t('chat.backToOffice')}</button>
     </div>
-  {:else if cockpit.space}
+  {:else if !cockpit.openingSession && cockpit.space}
     <!-- A trail, not a sentence: the project is the level above this chat, so
          naming both in order says where you are and gets you back in one click.
          The chat's own name is dropped until it has one — a chat with no first
@@ -4769,30 +4834,26 @@
     </nav>
   {/if}
 
-  {#if messages.length === 0}
-    <div class="empty-state" class:walking={!!cockpit.walkingTo}>
-      <!-- The mark as ground rather than as the first item in the column. At
-           56px it stood in the stack competing with the question and the cards
-           for the same middle of the screen; behind them at this size it is
-           the room they are standing in. -->
-      <!-- Two figures on that ground since 12 ก.ย. 2026: the mark, moved off
-           centre to the right, and this desk's head standing to its left at
-           the same height — a still, in the shell and accent the user picked
-           on the avatar page for THIS head (14 ก.ย.: the code desk has its
-           own), so changing the avatar changes this room and not the other.
-           Both are ink on the wall, not a companion: the one that moves and
-           talks is Companion.svelte, and this is not a second copy of it. -->
-      <div class="brand-ground pair">
-        <Logo size={520} animate={false} />
-        <Mascot {...headOptions(headOf(cockpit.desk))} pose="idle" size={520} still />
+  {#if cockpit.openingSession}
+    <!-- Immediate acknowledgement of a history click. The old conversation is
+         deliberately not left under the newly selected row while the engine
+         restores the target; that looked like the click had not registered and
+         invited a second click, which started a second bootstrap. -->
+    <div class="empty-state session-opening" data-guide-place="chat" data-guide-context={cockpit.desk === 'coding' ? 'coding' : 'assistant'} role="status" aria-live="polite">
+      <div class="typing-row model-load">
+        <span class="model-load-mark"><Icon name="loaderCircle" size={15} /></span>
+        <span class="model-load-text">{t('settings.loading')}</span>
       </div>
+    </div>
+  {:else if messages.length === 0}
+    <div class="empty-state" data-guide-place="chat" data-guide-context={cockpit.desk === 'coding' ? 'coding' : 'assistant'} class:walking={!!cockpit.walkingTo}>
       <h2 data-guide="chat.empty_headline">{headline}</h2>
       <!-- Keyed by title so a re-deal replaces the cards rather than rewriting
            the text inside four cards that never moved — which is what makes the
            swap read as a new hand instead of a flicker. -->
-      <div class="starter-grid" data-guide="chat.starter">
+      <div class="starter-grid">
         {#each starters as s, i (s.title)}
-          <button class="starter-card" style="--i:{i}" onclick={() => pickStarter(s.prompt)}>
+          <button data-guide="chat.starter" class="starter-card" style="--i:{i}" onclick={() => pickStarter(s.prompt)}>
             <span class="ic"><Icon name={s.icon} size={18} /></span>
             <span class="title">{s.title}</span>
           </button>
@@ -4822,6 +4883,7 @@
                 onclick={() => guide.start()}>
           <Icon name="compass" size={13} />
           <span>{t('chat.guideLink')}</span>
+          <span class="starter-key">{shortcutLabel('guide')}</span>
         </button>
       </div>
     </div>
@@ -4830,7 +4892,7 @@
     <!-- delegated click target is the <a> tags rendered inside .markdown-body, already interactive -->
     <!-- The page says where it is (lib/rooms.ts PLACE_ATTR) — the guide
          reads the sign rather than asking the app which view is up. -->
-    <div class="chat" data-guide-place="chat" bind:this={chatEl} onscroll={onChatScroll} onclick={onChatClick}>
+    <div class="chat" data-guide-place="chat" data-guide-context={cockpit.desk === 'coding' ? 'coding' : 'assistant'} bind:this={chatEl} onscroll={onChatScroll} onclick={onChatClick}>
     <div class="chat-inner" bind:this={chatInnerEl}>
       <!-- A session the engine refused to open. It says why — the folder moved,
            the desk file is gone — and until this existed it said it to nobody:
@@ -5189,6 +5251,15 @@
                   type="button" class="msg-copy icobtn tiny" aria-label={t('chat.resend')} data-tip={t('chat.resend')}
                   onclick={() => resendSame(m.text)}
                 ><Icon name="rotateCw" size={13} /></button>
+              {/if}
+              {#if cockpit.transport === 'telegram' || cockpit.transport === 'discord'}
+                <!-- The session's delivery boundary, beside the same metadata
+                     on every bubble. This is the real service mark shared with
+                     Connections, not a generic chat glyph. -->
+                <span class="msg-transport" title={cockpit.transport === 'telegram' ? 'Telegram' : 'Discord'}>
+                  <ConnectionMark id={cockpit.transport} size={13} />
+                  <span>{cockpit.transport === 'telegram' ? 'Telegram' : 'Discord'}</span>
+                </span>
               {/if}
               <span class="msg-time">{m.time}</span>
               {#if m.role === 'agent' && m.text && !m.failed}
@@ -6471,6 +6542,19 @@
                     {@render upSelect('thinkLevel', thinkLevels.map((lvl) => ({ value: lvl, label: lvl })), model.thinkLevel, handleThinkChange)}
                   </div>
                 {/if}
+                {#if model.provider.toLowerCase() === 'codex' && serviceTiers.length > 0}
+                  <div class="mm-row">
+                    <span class="lbl">{t('chat.speedMode')}</span>
+                    {@render upSelect('serviceTier', [
+                      { value: '', label: t('chat.speedNormal'), desc: t('chat.speedNormalDesc') },
+                      ...serviceTiers.map((tier) => ({
+                        value: tier.id,
+                        label: serviceTierLabel(tier),
+                        desc: t('chat.speedFastDesc'),
+                      })),
+                    ], model.serviceTier ?? '', handleServiceTierChange)}
+                  </div>
+                {/if}
               </div>
             {/if}
             <!-- One question, answered twice over: which brain is answering,
@@ -6490,7 +6574,7 @@
               data-guide="composer.model"
               type="button" class="model-chip"
               title={model.modelName || model.provider}
-              onclick={(e) => { e.stopPropagation(); const open = !modelMenuOpen; closeComposerMenus(); modelMenuOpen = open; if (open) { refreshThinkLevels(); EnabledProviders().then((p) => (providers = p)) } }}
+              onclick={(e) => { e.stopPropagation(); const open = !modelMenuOpen; closeComposerMenus(); modelMenuOpen = open; if (open) { refreshThinkLevels(); refreshServiceTiers(); EnabledProviders().then((p) => (providers = p)) } }}
             >
               <span class="pv"><ProviderMark name={model.provider} size={14} /></span>
               {#if model.modelName}<span class="t">{shortModelName(model.modelName)}</span>{/if}
@@ -6498,6 +6582,7 @@
                    model.thinkLevel instead, a model with exactly one real level
                    drew a badge for a setting the menu offers no way to change. -->
               {#if thinkLevels.length > 1 && model.thinkLevel}<span class="lvl" data-guide="composer.think">{model.thinkLevel}</span>{/if}
+              {#if model.serviceTier}<span class="lvl">{activeServiceTierLabel()}</span>{/if}
               <!-- A switch is waiting. Said with a mark and not with the name:
                    this chip's one job is to say what is answering RIGHT NOW,
                    and another model's name sitting on it would read as that. -->

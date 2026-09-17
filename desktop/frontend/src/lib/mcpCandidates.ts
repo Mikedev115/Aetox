@@ -39,28 +39,6 @@ export interface MCPCandidate {
 export const MCP_CANDIDATES: MCPCandidate[] = [
   // ── auth: none — real 200, no header of any kind ──────────────────────
   {
-    id: 'coingecko',
-    category: 'crypto/market data',
-    source: 'https://mcp.api.coingecko.com/mcp',
-    auth: 'none',
-    gap: 'Aetox has no market/financial-data tool — calc.go only evaluates arithmetic the model already has numbers for; nothing fetches live crypto prices, market caps, or historical series.',
-    overlaps: [],
-    verifiedAt: '2026-09-03',
-    toolCount: 2,
-    evidence: 'POST /mcp (no headers) -> 200 {"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{},"logging":{}},"serverInfo":{"name":"coingecko_coingecko_typescript_api","version":"7.1.0"}}} — tools/list: search_docs, execute (runs TS against a pre-authenticated SDK client).',
-  },
-  {
-    id: 'wolfram-cloud',
-    category: 'computation / scientific knowledge',
-    source: 'https://agenttools.wolfram.com/mcp',
-    auth: 'none',
-    gap: 'calc.go is a JS sandbox with no filesystem/network/real-world knowledge — arithmetic only, no units, no entities, no science/geography/history data. This reaches the actual Wolfram|Alpha engine and a Wolfram Language kernel.',
-    overlaps: ['calc (internal/skill/calc.go) — conceptually both "compute", but calc.go cannot touch real-world data/units/entities at all'],
-    verifiedAt: '2026-09-03',
-    toolCount: 3,
-    evidence: 'POST /mcp (no headers) -> 200 {"result":{"protocolVersion":"2025-03-26","capabilities":{"tools":{"listChanged":true}},"serverInfo":{"name":"Wolfram","version":"2026.08.31"}}} — tools/list: WolframContext, WolframLanguageEvaluator, WolframAlpha.',
-  },
-  {
     id: 'twilio-docs',
     category: 'vendor API/docs search',
     source: 'https://mcp.twilio.com/docs',
@@ -101,17 +79,6 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
   // "a one-line addition whenever it is wanted") the whole time this row
   // sat unpromoted beside it. Deleted per the rule at the top of this file;
   // found during the 2026-09-13 backlog triage.
-  {
-    id: 'cloudflare-api',
-    category: 'cloud infrastructure management (Cloudflare account)',
-    source: 'https://mcp.cloudflare.com/mcp',
-    auth: 'static-header',
-    gap: 'The cloudflare-docs preset already on the shelf only searches documentation — it cannot read or change anything in the user\'s own Cloudflare account. This is the full account API (DNS, Workers, R2, Zero Trust, ...).',
-    overlaps: ['cloudflare-docs (already on shelf) — docs search only, never touches a real account'],
-    verifiedAt: '2026-09-03',
-    toolCount: null,
-    evidence: 'POST /mcp (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", resource_metadata="https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp" — Cloudflare docs confirm a scoped API token works as a Bearer header alongside OAuth.',
-  },
   {
     id: 'fal',
     category: 'image / video / audio generation',
@@ -202,22 +169,9 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
   //    someone has signed in for real and written it. Sentry and figma,
   //    below on 2026-09-03, were promoted the same way on 2026-09-13 and
   //    are deleted from here too (found during that day's backlog triage).
-  //    Linear is the rest of that research pass: the servers mcpShelf.ts's
-  //    own history names as "blocked by rule 2 until the client learns
-  //    OAuth" (Linear, Sentry, Atlassian) plus three more checked the same
-  //    way (Figma, PagerDuty, Slack) — verified 2026-09-03, after the DCR
-  //    flow existed, not before. ─────────────────────────────────────────
-  {
-    id: 'linear',
-    category: 'project management / issue tracking',
-    source: 'https://mcp.linear.app/mcp',
-    auth: 'oauth-dcr',
-    gap: 'Aetox has no project-management/issue-tracker tool at all — nothing reads or writes issues, projects, or comments in a live workspace.',
-    overlaps: [],
-    verifiedAt: '2026-09-03',
-    toolCount: null,
-    evidence: 'POST /mcp (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", resource_metadata="https://mcp.linear.app/.well-known/oauth-protected-resource/mcp". Discovery: AS metadata at https://mcp.linear.app/.well-known/oauth-authorization-server has registration_endpoint="https://mcp.linear.app/register". DCR supported — the second of the four named in the shelf history. Re-probed 2026-09-13: still answers the same 401.',
-  },
+  //    Linear joined the shelf on 2026-09-17 after a fresh DCR probe. The
+  //    remaining rows below are the servers still blocked or awaiting a
+  //    product decision. ─────────────────────────────────────────────────
 
   // ── auth: oauth-manual — OAuth-only, and the authorization server has NO
   //    registration_endpoint, so Aetox cannot register a client on the fly.
@@ -339,8 +293,8 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
     category: 'stock / forex / commodity market data',
     source: 'https://mcp.alphavantage.co/mcp',
     auth: 'static-header',
-    gap: 'Equities, FX and commodities time series — the same gap coingecko above fills for crypto, for everything else. calc.go has no numbers of its own.',
-    overlaps: ['coingecko (above) — crypto only', 'currencyapi (above) — FX rates only'],
+    gap: 'Equities, FX and commodities time series — the same gap coingecko on the shelf fills for crypto, for everything else. calc.go has no numbers of its own.',
+    overlaps: ['coingecko (on shelf) — crypto only', 'currencyapi (above) — FX rates only'],
     verifiedAt: '2026-09-05',
     toolCount: null,
     evidence: 'POST /mcp (no headers) -> 401 {"error":"invalid_request","error_description":"Missing access token"}, header WWW-Authenticate: Bearer resource_metadata="https://mcp.alphavantage.co/.well-known/oauth-protected-resource/mcp". Alpha Vantage issues a free API key on its site; AS metadata also has a registration_endpoint.',
@@ -357,7 +311,7 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
     source: 'https://mcp.asana.com/sse',
     auth: 'oauth-dcr',
     gap: 'Aetox has no task or project tool at all — nothing reads or writes tasks, projects, or comments in a live workspace.',
-    overlaps: ['linear (above) — same category, different vendor'],
+    overlaps: ['linear (on shelf) — same category, different vendor'],
     verifiedAt: '2026-09-05',
     toolCount: null,
     evidence: 'POST (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token", resource_metadata="https://mcp.asana.com/.well-known/oauth-protected-resource". AS metadata at https://mcp.asana.com/.well-known/oauth-authorization-server has registration_endpoint. Note the path is /sse — the older transport — so internal/mcp/client.go\'s streamable-HTTP path needs checking against it before promotion.',
@@ -368,21 +322,10 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
     source: 'https://mcp.monday.com/mcp',
     auth: 'oauth-dcr',
     gap: 'Same gap as asana and linear — boards, items, updates in a live monday.com account — for the third vendor in that category.',
-    overlaps: ['asana (above)', 'linear (above)'],
+    overlaps: ['asana (above)', 'linear (on shelf)'],
     verifiedAt: '2026-09-05',
     toolCount: null,
     evidence: 'POST (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token", resource_metadata="https://mcp.monday.com/.well-known/oauth-protected-resource/mcp". AS metadata at https://auth.monday.com/.well-known/oauth-authorization-server/mcp has registration_endpoint.',
-  },
-  {
-    id: 'miro',
-    category: 'whiteboards / diagrams (Miro)',
-    source: 'https://mcp.miro.com/mcp',
-    auth: 'oauth-dcr',
-    gap: 'Aetox draws nothing on a shared board — nothing reads or writes sticky notes, frames, or diagrams in a live Miro board.',
-    overlaps: [],
-    verifiedAt: '2026-09-05',
-    toolCount: null,
-    evidence: 'POST /mcp (no headers) -> 401 {"error":"Authentication required"}, header WWW-Authenticate: Bearer resource_metadata="https://mcp.miro.com/.well-known/oauth-protected-resource". AS metadata at https://mcp.miro.com/.well-known/oauth-authorization-server has registration_endpoint.',
   },
   {
     id: 'paypal',
@@ -449,17 +392,6 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
     verifiedAt: '2026-09-05',
     toolCount: null,
     evidence: 'POST / (no headers) -> 401 {"error":"invalid_token","error_description":"Missing Authorization header"}, header WWW-Authenticate naming resource_metadata="https://mcp.sanity.io/.well-known/oauth-protected-resource". AS metadata at https://mcp.sanity.io/.well-known/oauth-authorization-server has registration_endpoint.',
-  },
-  {
-    id: 'prisma',
-    category: 'Postgres hosting (Prisma)',
-    source: 'https://mcp.prisma.io/mcp',
-    auth: 'oauth-dcr',
-    gap: 'Third database vendor after neon and supabase — Prisma Postgres projects, connection strings, and the Prisma-side tooling.',
-    overlaps: ['neon (above)', 'supabase (on shelf)'],
-    verifiedAt: '2026-09-05',
-    toolCount: null,
-    evidence: 'POST /mcp (no headers) -> 401 {"error":"invalid_token","error_description":"Missing Authorization header"}, header WWW-Authenticate naming resource_metadata="https://mcp.prisma.io/.well-known/oauth-protected-resource/mcp". AS metadata at https://auth.prisma.io/.well-known/oauth-authorization-server has registration_endpoint.',
   },
   {
     id: 'intercom',
@@ -533,23 +465,11 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
     source: 'https://radar.mcp.cloudflare.com/mcp',
     auth: 'oauth-dcr',
     gap: 'Radar is Cloudflare\'s public view of the internet — traffic shifts, outages, domain rankings, attack trends — a data set nothing on the shelf reaches. Distinct from cloudflare-docs (reads docs) and cloudflare-api (one account).',
-    overlaps: ['cloudflare-docs (on shelf) — docs only', 'cloudflare-api (above) — the user\'s own account'],
+    overlaps: ['cloudflare-docs (on shelf) — docs only', 'cloudflare-api (on shelf) — the user\'s own account'],
     verifiedAt: '2026-09-05',
     toolCount: null,
     evidence: 'POST /mcp (no headers) -> 401, empty body, header WWW-Authenticate: Bearer realm="OAuth", resource_metadata="https://radar.mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp". AS metadata at https://radar.mcp.cloudflare.com/.well-known/oauth-authorization-server has registration_endpoint.',
   },
-  {
-    id: 'dodo',
-    category: 'payments / merchant of record (Dodo Payments)',
-    source: 'https://mcp.dodopayments.com/mcp',
-    auth: 'oauth-dcr',
-    gap: 'Fourth payments vendor, the one that handles global tax as merchant of record — products, subscriptions, payouts.',
-    overlaps: ['stripe (above)', 'paypal (above)', 'square (above)'],
-    verifiedAt: '2026-09-05',
-    toolCount: null,
-    evidence: 'POST (no headers) -> 401, header WWW-Authenticate: Bearer realm="OAuth", error="invalid_token", error_description="Missing or invalid access token", resource_metadata="https://mcp.dodopayments.com/.well-known/oauth-protected-resource/mcp". AS metadata at https://mcp.dodopayments.com/.well-known/oauth-authorization-server has registration_endpoint.',
-  },
-
   // ── auth: oauth-manual — no registration_endpoint, so not one click ──────
   {
     id: 'hubspot',
@@ -604,17 +524,8 @@ export const MCP_CANDIDATES: MCPCandidate[] = [
   //    initialize call. None of these have a `gap`/`overlaps` write-up yet
   //    on purpose: that comes after the chain is known, per this file's own
   //    method. ───────────────────────────────────────────────────────────
-  //   - replicate (creator/AI-generation category) — https://mcp.replicate.com/mcp
-  //     and /sse both answered; the /.well-known/oauth-protected-resource
-  //     fetch that would name the authorization server was in flight when
-  //     the pass stopped.
-  //   - xero (business/accounting category) — https://mcp.xero.com/mcp
-  //     answers 401 "Jwt is missing" with a bare `WWW-Authenticate: Bearer
-  //     realm="https://mcp.xero.com/mcp"` and no resource_metadata pointer
-  //     at all, which usually means a full manual OAuth app registration
-  //     rather than DCR — worth confirming before assuming oauth-manual.
-  //   - smartsheet (business/PM category) — https://mcp.smartsheet.com/mcp
-  //     answers a bare 401 with no WWW-Authenticate header of any kind;
-  //     Smartsheet's own API docs describe a personal access token, which
-  //     may mean this one is actually static-header once checked properly.
+  // Replicate, Xero and Smartsheet were completed in the 2026-09-17 pass and
+  // promoted to MCP_PRESETS. Replicate now exposes DCR; Xero's official stdio
+  // package takes its documented client id/secret; Smartsheet documents its
+  // personal API-token header for custom MCP clients.
 ]

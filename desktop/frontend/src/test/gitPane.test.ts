@@ -27,6 +27,8 @@ const CHANGED = [
   { path: 'ARCHITECTURE.md', status: 'M', added: 5, removed: 1 },
 ]
 
+const THIRD_CHANGE = { path: 'internal/mode/modes/coding.md', status: 'M', added: 1, removed: 0 }
+
 const DIFF = '+++ ARCHITECTURE.md\n@@ -565,1 +565,2 @@\n old row\n+| §161 | a new row |'
 
 beforeEach(() => {
@@ -315,6 +317,68 @@ describe('GitPane', () => {
     )
   })
 
+  it('keeps unselected files in a group actionable after committing its selected subset', async () => {
+    vi.mocked(GitSuggestSplitCommits).mockResolvedValue([
+      {
+        title: 'two files',
+        message: 'feat: selected subset',
+        files: ['internal/skill/hunk.go', 'ARCHITECTURE.md'],
+      },
+    ] as any)
+
+    const { container } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-split-section')).not.toBeNull())
+    await fireEvent.click(container.querySelector('.gp-split-section .gp-commit-btn') as HTMLButtonElement)
+    await waitFor(() => expect(container.querySelectorAll('.gp-split-card').length).toBe(1))
+
+    vi.mocked(GitWorkingTree).mockResolvedValue([CHANGED[1]] as any)
+    const picks = container.querySelectorAll('.gp-split-file-item input')
+    await fireEvent.click(picks[1] as HTMLInputElement)
+    await fireEvent.click(container.querySelector('.gp-split-commit-btn') as HTMLButtonElement)
+
+    await waitFor(() => expect(container.querySelectorAll('.gp-split-card').length).toBe(1))
+    const remaining = container.querySelector('.gp-split-card') as HTMLElement
+    expect(remaining.classList.contains('committed')).toBe(false)
+    expect(remaining.querySelector('.gp-split-commit-btn')).not.toBeNull()
+    expect(vi.mocked(GitCommitFiles)).toHaveBeenCalledWith('feat: selected subset', ['internal/skill/hunk.go'])
+  })
+
+  it('removes committed groups immediately and reports the group that stops a partial batch', async () => {
+    vi.mocked(GitSuggestSplitCommits).mockResolvedValue([
+      { title: 'first group', message: 'feat: first', files: ['internal/skill/hunk.go'] },
+      { title: 'second group', message: 'feat: second', files: ['ARCHITECTURE.md'] },
+      { title: 'third group', message: 'feat: third', files: ['internal/mode/modes/coding.md'] },
+    ] as any)
+
+    let rejectSecond: ((reason?: unknown) => void) | undefined
+    vi.mocked(GitCommitFiles)
+      .mockImplementationOnce(async () => {
+        vi.mocked(GitWorkingTree).mockResolvedValue([CHANGED[1], THIRD_CHANGE] as any)
+        return { outcome: 'committed', hash: 'first' } as any
+      })
+      .mockImplementationOnce(() => new Promise((_, reject) => {
+        rejectSecond = reject
+      }))
+
+    const { container, getByText } = render(GitPane)
+    await waitFor(() => expect(container.querySelector('.gp-split-section')).not.toBeNull())
+    await fireEvent.click(container.querySelector('.gp-split-section .gp-commit-btn') as HTMLButtonElement)
+    await waitFor(() => expect(container.querySelectorAll('.gp-split-card').length).toBe(3))
+
+    await fireEvent.click(container.querySelector('.gp-split-all-btn') as HTMLButtonElement)
+    await waitFor(() => expect(vi.mocked(GitCommitFiles)).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(container.querySelectorAll('.gp-split-card').length).toBe(2))
+    expect(container.querySelector('.gp-split-cards')?.textContent).not.toContain('first group')
+
+    rejectSecond!(new Error('git commit: exit status 1'))
+
+    await waitFor(() => expect(container.querySelector('.gp-alert.err')).not.toBeNull())
+    expect(getByText('Committed 1 of 3 groups; failed at second group: git commit: exit status 1')).toBeTruthy()
+    expect(vi.mocked(GitCommitFiles)).toHaveBeenCalledTimes(2)
+    expect(container.querySelector('.gp-split-cards')?.textContent).toContain('second group')
+    expect(container.querySelector('.gp-split-cards')?.textContent).toContain('third group')
+  })
+
   it('supports committing all split groups in sequence', async () => {
     vi.mocked(GitSuggestSplitCommits).mockResolvedValue([
       {
@@ -343,7 +407,7 @@ describe('GitPane', () => {
     expect(commitAllBtn).not.toBeNull()
     await fireEvent.click(commitAllBtn)
 
-    expect(vi.mocked(GitCommitFiles)).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(vi.mocked(GitCommitFiles)).toHaveBeenCalledTimes(2))
     expect(vi.mocked(GitCommitFiles)).toHaveBeenNthCalledWith(
       1,
       'feat(skill): update hunk parser',

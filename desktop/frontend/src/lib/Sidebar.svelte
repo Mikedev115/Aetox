@@ -34,11 +34,16 @@
   import CompanionSwitch from './mascot/CompanionSwitch.svelte'
   import { profile, loadProfileName, saveProfileName } from './stores/profile.svelte'
   import { openTour } from './tourState.svelte'
+  import ProjectSidebar from './ProjectSidebar.svelte'
 
   let { onOpenSettings }: { onOpenSettings: () => void } = $props()
 
   let historyQuery = $state('')
   let historySearchTimer: ReturnType<typeof setTimeout> | undefined
+  // The two lists are permanent neighbours. Folding one changes only how much
+  // of the rail it occupies; it never changes which context a new chat uses.
+  let projectsFolded = $state(false)
+  let chatsFolded = $state(false)
 
   // The name lives in stores/profile.svelte.ts, which the empty chat reads
   // too; this file shows it and is the one place that edits it.
@@ -259,6 +264,7 @@
       return
     }
     confirmDeleteId = ''
+    rowMenu = ''
     deleteSession(s)
   }
 
@@ -271,12 +277,31 @@
   // pressed once in a project's life go behind one button. One menu id for both
   // doors, prefixed, because only ever one may be open.
   let rowMenu = $state('')
+  let chatMenuUp = $state('')
   function toggleRowMenu(id: string) {
     rowMenu = rowMenu === id ? '' : id
     forgetKey = ''
   }
+  function toggleChatMenu(event: MouseEvent | KeyboardEvent, id: string) {
+    const menuID = 'c:' + id
+    if (rowMenu === menuID) {
+      rowMenu = ''
+      chatMenuUp = ''
+      return
+    }
+    const trigger = event.currentTarget as HTMLElement
+    const viewport = trigger.closest('.scroll')?.getBoundingClientRect()
+    const rect = trigger.getBoundingClientRect()
+    const roomBelow = (viewport?.bottom ?? window.innerHeight) - rect.bottom
+    const roomAbove = rect.top - (viewport?.top ?? 0)
+    // Four menu rows plus padding and border. Open upward only when it buys
+    // more room; a short rail may have little space on both sides.
+    chatMenuUp = roomBelow < 196 && roomAbove > roomBelow ? id : ''
+    toggleRowMenu(menuID)
+  }
   function closeRowMenu() {
     rowMenu = ''
+    chatMenuUp = ''
     forgetKey = ''
   }
 
@@ -321,7 +346,12 @@
   }
   function pickExport(s: Session, format: 'markdown' | 'json') {
     exportChoiceId = ''
+    rowMenu = ''
     void exportChat(s, format)
+  }
+  function toggleChatPin(s: Session) {
+    pinnedChats[s.id] = !pinnedChats[s.id]
+    rowMenu = ''
   }
   // The order of the projects is the user's, not the engine's. The engine
   // lists them by last opened, so opening one moved it to the top — the row
@@ -617,7 +647,13 @@
   // both rather than two headings that mean the same word.
   const pinnedSpaces_ = $derived(cockpit.spaces.filter((p) => pinnedSpaces[p.name]))
   const looseSpaces = $derived(cockpit.spaces.filter((p) => !pinnedSpaces[p.name]))
-  const shownSpaces = $derived(looseSpaces.slice(0, SPACE_PREVIEW))
+  const orderedSpaces = $derived([...pinnedSpaces_, ...looseSpaces])
+  const shownSpaces = $derived(orderedSpaces.slice(0, SPACE_PREVIEW))
+  const shownSpaceHistory = $derived([
+    ...cockpit.spaceHistory.filter((s) => pinnedChats[s.id]),
+    ...cockpit.spaceHistory.filter((s) => !pinnedChats[s.id]),
+  ])
+
 </script>
 
 <svelte:window
@@ -644,8 +680,11 @@
     class:working={sessionWorking(s)}
     class:unread={sessionUnread(s)}
     class:asking={sessionAsking(s)}
+    class:opening={cockpit.openingSession === s.id}
     class:draft={s.draft}
     class:pinned={pinnedChats[s.id]}
+    class:menu-open={rowMenu === 'c:' + s.id}
+    aria-busy={cockpit.openingSession === s.id}
     onclick={() => selectGlobalSession(s)}
   >
     <!-- The title gets the line to itself. It used to share one line with the
@@ -679,7 +718,9 @@
            — a chat waiting for its user is "working" by every flag — and the
            owner's word for it was เงียบ. Asking wins over working because it
            is the one state the user has to DO something about. -->
-      {#if sessionAsking(s)}
+      {#if cockpit.openingSession === s.id}
+        <span class="session-opening-mark"><Icon name="loaderCircle" size={12} /></span>
+      {:else if sessionAsking(s)}
         <span class="dot ask" role="img" title={t('sidebar.chatAsking')} aria-label={t('sidebar.chatAsking')}></span>
       {:else if sessionWorking(s)}
         <span class="dot green" role="img" title={t('sidebar.chatWorking')} aria-label={t('sidebar.chatWorking')}></span>
@@ -713,35 +754,40 @@
       {/if}
       <span class="ago">{s.ago}</span>
       <span class="sess-acts">
-        <!-- First of the three, because it is the only one that changes where
-             the row is rather than what happens to it — and unlike its
-             neighbours it stays visible once it is on, since the mark is the
-             reason this row is at the top. -->
-        <span class="sess-pin" class:on={pinnedChats[s.id]} role="button" tabindex="0"
-          aria-label={pinnedChats[s.id] ? t('sidebar.unpinChat') : t('sidebar.pinChat')}
-          aria-pressed={!!pinnedChats[s.id]}
-          onclick={(e) => { e.stopPropagation(); pinnedChats[s.id] = !pinnedChats[s.id] }}
-          onkeydown={(e) => e.key === 'Enter' && (e.stopPropagation(), (pinnedChats[s.id] = !pinnedChats[s.id]))}>
-          <Icon name="pin" size={12} />
-        </span>
-        <span class="sess-exp" class:armed={exportChoiceId === s.id} role="button" tabindex="0"
-          aria-label={t('sidebar.exportSession')}
-          onclick={(e) => { e.stopPropagation(); onExportSession(s) }}
-          onkeydown={(e) => e.key === 'Enter' && (e.stopPropagation(), onExportSession(s))}>
-          {#if exportChoiceId === s.id}
-            <span class="fmt" role="button" tabindex="0"
-              onclick={(e) => { e.stopPropagation(); pickExport(s, 'markdown') }}
-              onkeydown={(e) => e.key === 'Enter' && (e.stopPropagation(), pickExport(s, 'markdown'))}>MD</span>
-            <span class="fmt" role="button" tabindex="0"
-              onclick={(e) => { e.stopPropagation(); pickExport(s, 'json') }}
-              onkeydown={(e) => e.key === 'Enter' && (e.stopPropagation(), pickExport(s, 'json'))}>JSON</span>
-          {:else}<Icon name="download" size={12} />{/if}
-        </span>
-        <span class="sess-del" class:confirm={confirmDeleteId === s.id} role="button" tabindex="0"
-          aria-label={t('sidebar.deleteSession')}
-          onclick={(e) => { e.stopPropagation(); onDeleteSession(s) }}
-          onkeydown={(e) => e.key === 'Enter' && (e.stopPropagation(), onDeleteSession(s))}>
-          {#if confirmDeleteId === s.id}{t('sidebar.confirmDelete')}{:else}<Icon name="x" size={12} />{/if}
+        <span class="row-menu-wrap sess-menu-wrap">
+          <span class="row-more sess-more" role="button" tabindex="0" aria-label={t('sidebar.rowMenu')}
+            aria-expanded={rowMenu === 'c:' + s.id}
+            onclick={(e) => { e.stopPropagation(); toggleChatMenu(e, s.id); confirmDeleteId = ''; exportChoiceId = '' }}
+            onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); toggleChatMenu(e, s.id); confirmDeleteId = ''; exportChoiceId = '' } }}>
+            <Icon name="ellipsisVertical" size={13} />
+          </span>
+          {#if rowMenu === 'c:' + s.id}
+            <span class="plus-menu sess-row-menu" class:up={chatMenuUp === s.id} role="menu" tabindex="-1"
+              onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+              <span class="plus-menu-item" role="menuitem" tabindex="0"
+                onclick={(e) => { e.stopPropagation(); toggleChatPin(s) }}
+                onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); toggleChatPin(s) } }}>
+                <span class="ic"><Icon name="pin" size={13} /></span>
+                {pinnedChats[s.id] ? t('sidebar.unpinChat') : t('sidebar.pinChat')}
+              </span>
+              <span class="plus-menu-item" role="menuitem" tabindex="0"
+                onclick={(e) => { e.stopPropagation(); pickExport(s, 'markdown') }}
+                onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); pickExport(s, 'markdown') } }}>
+                <span class="ic"><Icon name="download" size={13} /></span>Markdown
+              </span>
+              <span class="plus-menu-item" role="menuitem" tabindex="0"
+                onclick={(e) => { e.stopPropagation(); pickExport(s, 'json') }}
+                onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); pickExport(s, 'json') } }}>
+                <span class="ic"><Icon name="download" size={13} /></span>JSON
+              </span>
+              <span class="plus-menu-item danger" role="menuitem" tabindex="0"
+                onclick={(e) => { e.stopPropagation(); onDeleteSession(s) }}
+                onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onDeleteSession(s) } }}>
+                <span class="ic"><Icon name="x" size={13} /></span>
+                {confirmDeleteId === s.id ? t('sidebar.confirmDelete') : t('sidebar.deleteSession')}
+              </span>
+            </span>
+          {/if}
         </span>
       </span>
     </span>
@@ -846,28 +892,16 @@
     {/each}
   </nav>
 
-  <!-- The column's own two actions, above whichever list it is showing. They
-       belong to the whole column, not to one list, so they sit outside the
-       scroller with the rooms — a row that scrolls away is a row you go
-       looking for. As icons rather than the two blocks they used to be: this
-       is the top of a list, and the list is what the column is for. -->
-  {#if showChats}
+  <!-- Search spans both sections and stays above the scroller. Creation and
+       import live on the heading of the list they affect below, so a global
+       icon never has to change meaning with the active project. -->
+  {#if showChats && !showProjects}
   <div class="side-actions">
     <span class="side-search">
       <span class="ic"><Icon name="search" size={14} /></span>
       <input placeholder={t('sidebar.searchHistory')} aria-label={t('sidebar.searchHistory')}
         bind:value={historyQuery} oninput={onHistorySearchInput} data-guide="sidebar.search" />
     </span>
-    <button
-      type="button" class="icobtn tip-r" aria-label={t('sidebar.importSession')}
-      data-guide="sidebar.import_chat"
-      data-tip={t('sidebar.importSession')} onclick={() => void importChat()}
-    ><Icon name="upload" size={15} /></button>
-    <button
-      type="button" class="icobtn tip-r" aria-label={t('sidebar.newSession')}
-      data-guide="sidebar.new_session"
-      data-tip="{t('sidebar.newSession')} · {shortcutLabel('newSession')}" onclick={newSession}
-    ><Icon name="pencil" size={15} /></button>
   </div>
   {/if}
 
@@ -879,7 +913,7 @@
        Above the list rather than inside its empty branch, because the draft
        chat is always a row: the empty branch does not run, so a message put
        there would never be seen in the case it was written for. -->
-  {#if showChats && cockpit.historyFault}
+  {#if showChats && !showProjects && cockpit.historyFault}
     <div class="hist-fault">
       <span class="ic"><Icon name="alertTriangle" size={13} /></span>
       <span>
@@ -894,6 +928,8 @@
   <div class="side-sections">
   <div class="side-panel" data-guide="sidebar.history">
     {#if showProjects}
+      <ProjectSidebar {pinnedChats} />
+      {#if false}
       <div class="scroll">
         <!-- No new-session button here: it is on the header row now, where it
              serves both lists instead of being repeated above each. The two
@@ -1038,10 +1074,12 @@
                      workshop side, where every chat lives nested under its
                      project, a running turn had no mark anywhere in the column
                      (owner, 22 ส.ค.). Same fact, same dot, same class names. -->
-                <div class="proj-group-sess" class:active={s.active} class:working={sessionWorking(s)} class:unread={sessionUnread(s)} class:asking={sessionAsking(s)} class:draft={s.draft}>
-                  <button type="button" class="proj-group-sess-open" onclick={() => selectGlobalSession(s)}>{s.title}</button>
+                <div class="proj-group-sess" class:active={s.active} class:working={sessionWorking(s)} class:unread={sessionUnread(s)} class:asking={sessionAsking(s)} class:opening={cockpit.openingSession === s.id} class:draft={s.draft}>
+                  <button type="button" class="proj-group-sess-open" aria-busy={cockpit.openingSession === s.id} onclick={() => selectGlobalSession(s)}>{s.title}</button>
                   {#if !s.draft && agoShort(s.updatedAt)}<span class="proj-group-sess-ago">{agoShort(s.updatedAt)}</span>{/if}
-                  {#if sessionAsking(s)}
+                  {#if cockpit.openingSession === s.id}
+                    <span class="session-opening-mark row-dot"><Icon name="loaderCircle" size={11} /></span>
+                  {:else if sessionAsking(s)}
                     <span class="dot ask row-dot" role="img" title={t('sidebar.chatAsking')} aria-label={t('sidebar.chatAsking')}></span>
                   {:else if sessionWorking(s)}
                     <span class="dot green row-dot" role="img" title={t('sidebar.chatWorking')} aria-label={t('sidebar.chatWorking')}></span>
@@ -1082,6 +1120,7 @@
         {/each}
         {/if}
       </div>
+      {/if}
     {:else}
       <!-- Three sections, one column (owner, 30 ส.ค.): what you pinned, your
            projects, then the chats. Measured before it was drawn — standing
@@ -1099,52 +1138,101 @@
             <div class="empty">{t('sidebar.noResults')}</div>
           {/if}
         {:else}
-          <!-- ที่ปักหมุด — one heading over both kinds. Pinning a project and
-               pinning a chat are the same gesture meaning the same thing, "keep
-               this at the top", and two headings for one sentence is how a
-               column stops being read. Absent entirely until something is
-               pinned. -->
-          {#if pinnedSpaces_.length || pinnedHistory.length}
-            <div class="sess-day-head sect">{t('sidebar.pinned')}</div>
-            {#each pinnedSpaces_ as p (p.name)}{@render spaceRow(p)}{/each}
-            {#each pinnedHistory as s (s.id)}{@render sessionRow(s, false)}{/each}
-          {/if}
-
-          <!-- โปรเจกต์. The rail is the door now: clicking a name opens a fresh
-               chat inside that project (openSpace), so the page is where you go
-               to make and manage them, not where you go to talk. Going back to
-               an earlier conversation is the list below. -->
-          <div class="sess-day-head sect">{t('desk.projects')}</div>
-          {#each shownSpaces as p (p.name)}{@render spaceRow(p)}{/each}
-          {#if looseSpaces.length > shownSpaces.length}
-            <button type="button" class="linkish space-all" onclick={() => setActiveView('projects')}>
-              {t('projects.allProjects')}
-            </button>
-          {/if}
-          <button type="button" class="space-new" onclick={() => setActiveView('projects')}>
-            <span class="ic"><Icon name="plus" size={13} /></span>{t('projects.create')}
-          </button>
-
-          <!-- แชท. Inside a project this is that project's own chats (§90) —
-               the general list drops them on purpose, so without this branch
-               the chat you are in would be nowhere on the column it is drawn
-               beside. The heading names the project rather than a day, because
-               a list that changed under you has to say why. -->
-          {#if inSpace}
-            <div class="sess-day-head sect">{t('sidebar.chatsInSpace', { name: cockpit.space })}</div>
-            {#each cockpit.spaceHistory as s (s.id)}{@render sessionRow(s, true)}{/each}
-            {#if cockpit.spaceHistory.length === 0}
-              <div class="sess-empty">{t('projects.noChats')}</div>
+          <!-- Two stable sections: projects never turn into a large "current
+               project" card, and chats never lose their own new-chat door.
+               This keeps the route out of a project in the same place even
+               while the rows below are showing that project's conversations. -->
+          <section class="rail-section" aria-label={t('desk.projects')}>
+            <div class="rail-section-head">
+              <button type="button" class="rail-section-toggle" aria-expanded={!projectsFolded}
+                onclick={() => (projectsFolded = !projectsFolded)}>
+                <span>{t('desk.projects')}</span>
+                <Icon name={projectsFolded ? 'chevronRight' : 'chevronDown'} size={13} />
+              </button>
+              <span class="rail-section-actions">
+                <button type="button" class="rail-head-action tip-r" data-tip={t('projects.create')}
+                  aria-label={t('projects.create')} onclick={() => setActiveView('projects')}>
+                  <Icon name="plus" size={14} />
+                </button>
+                <span class="row-menu-wrap">
+                  <button type="button" class="rail-head-action tip-r" data-tip={t('sidebar.projectSectionMenu')}
+                    aria-label={t('sidebar.projectSectionMenu')} aria-haspopup="menu"
+                    aria-expanded={rowMenu === 'section:projects'}
+                    onclick={(e) => { e.stopPropagation(); toggleRowMenu('section:projects') }}>
+                    <Icon name="ellipsis" size={15} />
+                  </button>
+                  {#if rowMenu === 'section:projects'}
+                    <div class="plus-menu rail-head-menu" role="menu">
+                      <button type="button" class="plus-menu-item" role="menuitem"
+                        onclick={() => { closeRowMenu(); setActiveView('projects') }}>
+                        <span class="ic"><Icon name="folder" size={14} /></span>{t('projects.allProjects')}
+                      </button>
+                    </div>
+                  {/if}
+                </span>
+              </span>
+            </div>
+            {#if !projectsFolded}
+              <div class="rail-section-body">
+                {#each shownSpaces as p (p.name)}{@render spaceRow(p)}{/each}
+                {#if shownSpaces.length === 0}
+                  <div class="rail-section-empty">{t('sidebar.noProjects')}</div>
+                {/if}
+              </div>
             {/if}
-          {:else}
-            {#each historyGroups as g (g.key)}
-              <div class="sess-day-head">{t(g.key)}</div>
-              {#each g.items as s (s.id)}{@render sessionRow(s, false)}{/each}
-            {/each}
-            {#if visibleHistory.length === 0}
-              <div class="empty">{t('sidebar.noHistory')}</div>
+          </section>
+
+          <section class="rail-section chat-section" aria-label={t('sidebar.globalHistory')}>
+            <div class="rail-section-head">
+              <button type="button" class="rail-section-toggle" aria-expanded={!chatsFolded}
+                onclick={() => (chatsFolded = !chatsFolded)}>
+                <span>{t('sidebar.globalHistory')}</span>
+                <Icon name={chatsFolded ? 'chevronRight' : 'chevronDown'} size={13} />
+              </button>
+              <span class="rail-section-actions">
+                <button type="button" class="rail-head-action tip-r" data-guide="sidebar.new_session"
+                  data-tip="{t('sidebar.newSession')} · {shortcutLabel('newSession')}"
+                  aria-label={t('sidebar.newSession')} onclick={newSession}>
+                  <Icon name="pencil" size={14} />
+                </button>
+                <span class="row-menu-wrap">
+                  <button type="button" class="rail-head-action tip-r" data-tip={t('sidebar.chatSectionMenu')}
+                    aria-label={t('sidebar.chatSectionMenu')} aria-haspopup="menu"
+                    aria-expanded={rowMenu === 'section:chats'}
+                    onclick={(e) => { e.stopPropagation(); toggleRowMenu('section:chats') }}>
+                    <Icon name="ellipsis" size={15} />
+                  </button>
+                  {#if rowMenu === 'section:chats'}
+                    <div class="plus-menu rail-head-menu" role="menu">
+                      <button type="button" class="plus-menu-item" role="menuitem" data-guide="sidebar.import_chat"
+                        onclick={() => { closeRowMenu(); void importChat() }}>
+                        <span class="ic"><Icon name="upload" size={14} /></span>{t('sidebar.importSession')}
+                      </button>
+                    </div>
+                  {/if}
+                </span>
+              </span>
+            </div>
+            {#if !chatsFolded}
+              <div class="rail-section-body">
+                {#if inSpace}
+                  {#each shownSpaceHistory as s (s.id)}{@render sessionRow(s, true)}{/each}
+                  {#if shownSpaceHistory.length === 0}
+                    <div class="sess-empty">{t('projects.noChats')}</div>
+                  {/if}
+                {:else}
+                  {#each pinnedHistory as s (s.id)}{@render sessionRow(s, false)}{/each}
+                  {#each historyGroups as g (g.key)}
+                    <div class="sess-day-head">{t(g.key)}</div>
+                    {#each g.items as s (s.id)}{@render sessionRow(s, false)}{/each}
+                  {/each}
+                  {#if visibleHistory.length === 0}
+                    <div class="empty">{t('sidebar.noHistory')}</div>
+                  {/if}
+                {/if}
+              </div>
             {/if}
-          {/if}
+          </section>
         {/if}
       </div>
     {/if}

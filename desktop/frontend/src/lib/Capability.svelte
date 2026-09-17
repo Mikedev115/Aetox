@@ -196,6 +196,7 @@
   import { t, type TKey } from './i18n.svelte'
   import Icon from './Icon.svelte'
   import ScopeMark from './ScopeMark.svelte'
+  import ConnectionMark from './ConnectionMark.svelte'
   import AgentMascot from './mascot/AgentMascot.svelte'
   import RankedFace from './RankedFace.svelte'
   import { lookOf } from './mascot/agentLook'
@@ -221,7 +222,7 @@
   }
   type TargetRow = { id: string; name: string; detail?: string; kind: string }
   type Profile = { name: string; description?: string; icon?: string; shell?: string; top?: string; face?: string; accent?: string; hue?: string; needs?: string[] }
-  type ToolCost = { name: string; tokens: number }
+  type ToolCost = { name: string; description?: string; tokens: number }
 
   let servers = $state<MCPRow[]>([])
   let targets = $state<TargetRow[]>([])
@@ -318,6 +319,7 @@
   ]
   const RAIL_GUIDE: Partial<Record<Page, string>> = {
     mine: 'capability.rail.mcp',
+    shelf: 'capability.rail.mcp_library',
     skills: 'capability.rail.skills',
     tools: 'capability.rail.builtins',
     computer: 'capability.rail.computer',
@@ -496,7 +498,7 @@
   // detail. Its error is its own, under its own card, not the room's banner.
   let computerOn = $state(false)
   let computerApps = $state<string[]>([])
-  type ComputerAppRow = { name: string; title: string; allowed: boolean; blocked: string; warn: string; icon: string }
+  type ComputerAppRow = { id: string; name: string; title: string; allowed: boolean; blocked: string; warn: string; icon: string }
   let computerRows = $state<ComputerAppRow[]>([])
   let computerFixedIcons = $state<Record<string, string>>({})
   let computerError = $state('')
@@ -516,12 +518,11 @@
       computerOn = await ComputerControlOn()
       computerApps = (await GrantedComputerApps()) ?? []
       computerRows = ((await OpenComputerApps()) ?? []) as ComputerAppRow[]
-      // The three rows that are not built yet are drawn from a fixed list, so
-      // their logos have to be asked for by name. Missing is fine and common:
-      // a machine without Excel installed gets no Excel icon and the row says
-      // what it always said.
-      const named = await Promise.all(['chrome', 'msedge', 'excel'].map(ProgramIcon))
-      computerFixedIcons = { chrome: named[0] ?? '', msedge: named[1] ?? '', excel: named[2] ?? '' }
+      // The browser reaches that are not built yet are drawn from a fixed list,
+      // so their logos have to be asked for by name. Missing is fine: the row
+      // still explains that its extension has not been installed.
+      const named = await Promise.all(['chrome', 'msedge'].map(ProgramIcon))
+      computerFixedIcons = { chrome: named[0] ?? '', msedge: named[1] ?? '' }
     } catch {
       // Preference file unreadable. Leave both at their shipped defaults rather
       // than drawing a switch whose state nothing confirmed.
@@ -539,7 +540,7 @@
   }
   const toggleComputer = () => computerDo(() => SetComputerControlOn(!computerOn))
   const browseForComputerApp = () => computerDo(BrowseForComputerApp)
-  const allowComputerApp = (name: string) => computerDo(() => AllowComputerApp(name))
+  const allowComputerApp = (id: string) => computerDo(() => AllowComputerApp(id))
   const revokeComputerApp = (name: string) => computerDo(() => RevokeComputerApp(name))
 
   // ---------- Connections (accounts the agent acts on your behalf with) -------
@@ -565,8 +566,18 @@
     /** Agents this connection already reaches before anybody places it
      *  (connect.Provider.DefaultAgents). Ticked, because the engine grants it. */
     default_agents?: string[]
+    // A system connection supplies credentials to the built-in integration.
+    // Tool/category manifests still decide who sees its tools; there is no
+    // second audience picker here (unlike a user-added MCP server).
+    system?: boolean
     // How to bring this one up, for the services the user runs themselves.
     start_command?: string
+    // Telegram/Discord are conversational doors, not tools placed on desks.
+    // The route fields come from the engine that creates their conversations;
+    // the page must never guess which assistant/model sits behind a bot.
+    channel?: boolean; pairing_code?: string; paired?: boolean
+    channel_desk?: string; channel_assistant?: string
+    channel_provider?: string; channel_model?: string
   }
   let connections = $state<ConnectionRow[]>([])
   // Keyed by connection id, because the page draws one card per service and two
@@ -604,7 +615,13 @@
   // in the Go catalog because it is a sentence a Thai-first app has to
   // translate, and a Go string literal cannot be. A service with no line drawn
   // yet renders nothing rather than a raw key.
-  const connBlurb: Record<string, string> = $derived({ github: t('settings.ghDesc') })
+  const connBlurb: Record<string, string> = $derived({
+    github: t('settings.ghDesc'),
+    telegram: t('settings.telegramDesc'),
+    discord: t('settings.discordDesc'),
+  })
+  const channelModel = (row: ConnectionRow): string =>
+    [row.channel_provider, row.channel_model].filter(Boolean).join(' · ') || t('settings.connBotCurrentModel')
   // Desks are pre-picked and agents are not — an agent is handed things on
   // purpose, which is the asymmetry the resolver applies to a connection nobody
   // has placed yet (config.ConnectionsForAgent). With one exception the catalog
@@ -656,7 +673,7 @@
     return row.source === 'connection' ? row.for : (connDraft[row.id] ?? [])
   }
   function servesNobody(row: ConnectionRow): boolean {
-    return row.configured && row.for.length === 0
+    return !row.channel && row.configured && row.for.length === 0
   }
   async function toggleConnectionTarget(row: ConnectionRow, targetID: string) {
     const current = placedOf(row)
@@ -694,7 +711,7 @@
     connError[row.id] = ''
     try {
       const account = await ConnectAccount(
-        row.id, token, (connBaseURL[row.id] ?? '').trim(), connDraft[row.id] ?? [])
+        row.id, token, (connBaseURL[row.id] ?? '').trim(), (row.system || row.channel) ? [] : (connDraft[row.id] ?? []))
       connScopes[row.id] = account.scopes ?? []
       // Cleared on success only. A token that failed stays in the box, because
       // the usual reason is a truncated paste and retyping the whole thing is a
@@ -1094,6 +1111,27 @@
     t('settings.mcpToolCount', { n: String(tools) }) +
     (tokens && tokens > 0 ? ' · ' + t('capability.tokensPerMsg', { n: fmtTokens(tokens) }) : '')
 
+  // Skill/MCP rows are runtime data, not fixed app controls. Give each visible
+  // row its own guide id and put its truthful facts beside it; guide/map.ts
+  // reads these attributes for Shift+click. encodeURIComponent keeps names
+  // from GitHub, MCP servers, and user-created skills safe inside selectors.
+  const guideItemId = (kind: 'skill' | 'skill-pack' | 'mcp' | 'mcp-tool', place: string, name: string) =>
+    `capability.item.${kind}.${encodeURIComponent(place)}.${encodeURIComponent(name)}`
+  const mcpDescription = (name: string, fallback = '') => presetOf(name)?.desc || fallback || name
+  const mcpGuideWhat = (name: string, fallback = '') =>
+    t('guide.dynamic.mcp.what', { name, description: mcpDescription(name, fallback) })
+  const mcpGuideWhy = (name: string) => presetOf(name)?.why || t('guide.dynamic.mcp.whyFallback')
+  const mcpGuideCommon = (name: string, fallback = '') =>
+    t('guide.dynamic.mcp.common', { description: mcpDescription(name, fallback) })
+  const mcpServerRecommend = (s: MCPRow) => t('guide.dynamic.mcp.status', {
+    status: t(stateKey[stateOf(s)]),
+    tools: String(toolsOf(s)),
+  })
+  const mcpPresetRecommend = (p: MCPPreset) => t('guide.dynamic.mcp.library', {
+    tools: String(p.toolCount ?? 0),
+    access: p.oauth ? t('capability.needsSignIn') : needsPaste(p.headers, p.env) ? t('capability.needsKey') : t('capability.bandInstant'),
+  })
+
 
   // ---- the dashboard --------------------------------------------------------
   const live = $derived(servers.filter((x) => !x.disabled))
@@ -1233,6 +1271,27 @@
   // do not all read `ae`.
   const skillMark = (n: string) => n.replace(/^aetox-/, '').slice(0, 2)
   const shortSkill = (n: string) => n.replace(/^aetox-/, '')
+  const skillGuideWhat = (s: Pick<SkillRow, 'name' | 'description'>) => t('guide.dynamic.skill.what', {
+    name: s.name,
+    description: s.description || t('guide.dynamic.skill.noDescription'),
+  })
+  const skillGuideWhy = (s: Pick<SkillRow, 'bundled'>) =>
+    t(s.bundled ? 'guide.dynamic.skill.bundled' : 'guide.dynamic.skill.personal')
+  const skillGuideCommon = (s: Pick<SkillRow, 'description'>) => t('guide.dynamic.skill.common', {
+    description: s.description || t('guide.dynamic.skill.noDescription'),
+  })
+  const skillGuideRecommend = (s: Pick<SkillRow, 'before' | 'bundled'>) => s.before
+    ? t('guide.dynamic.skill.before', { work: s.before })
+    : t(s.bundled ? 'guide.dynamic.skill.bundledRecommend' : 'guide.dynamic.skill.personalRecommend')
+  const skillPackWhat = (p: SkillPreset) => t('guide.dynamic.skillPack.what', {
+    name: p.name,
+    description: p.desc,
+  })
+  const skillPackRecommend = (p: SkillPreset) => t('guide.dynamic.skillPack.recommend', {
+    count: String(p.installs.length),
+    kb: String(p.kb),
+    licence: p.licence,
+  })
   // A folder shown relative to the shelf: the shelf's path is printed once
   // on the band, and a card repeating it thirty times is a wall.
   const skillDirShort = (dir: string) => (skillsDir && dir.startsWith(skillsDir) ? '~' + dir.slice(skillsDir.length) : dir)
@@ -1523,7 +1582,7 @@
        move; they are not drawn as rows that point elsewhere (§3). -->
   <aside class="settings-nav">
     <div class="settings-nav-head">
-      <button class="settings-back" onclick={onClose}>
+      <button class="settings-back" data-guide="room.back" onclick={onClose}>
         <span class="settings-back-icon"><Icon name="arrowLeft" size={15} /></span>
         <span>{t('settings.backToApp')}</span>
       </button>
@@ -1585,7 +1644,11 @@
       {#snippet serverCard(s: MCPRow)}
         {@const st = stateOf(s)}
         {@const needsSignIn = wantsSignIn(s)}
-        <div class="chair-card agc cap-srv" class:off={s.disabled}>
+        <div class="chair-card agc cap-srv" class:off={s.disabled}
+          data-guide={guideItemId('mcp', 'installed', s.name)} data-guide-page="capability.mine"
+          data-guide-name={s.name} data-guide-what={mcpGuideWhat(s.name, address(s))}
+          data-guide-why={mcpGuideWhy(s.name)} data-guide-common={mcpGuideCommon(s.name, address(s))}
+          data-guide-recommend={mcpServerRecommend(s)}>
           <div class="chair-body">
             <div class="chair-who">
               <McpMark name={s.name} size={38} />
@@ -1659,7 +1722,11 @@
             <p class="chair-desc" title={personDesc(x)}>{x.kind === 'desk' ? deskMeta(x.id).audience : roleOf(x)}</p>
             <div class="cap-holds">
               {#each h as srv (srv.name)}
-                <span class="cap-hold" title={presetOf(srv.name)?.desc ?? address(srv)}>
+                <span class="cap-hold" title={presetOf(srv.name)?.desc ?? address(srv)}
+                  data-guide={guideItemId('mcp', x.id, srv.name)} data-guide-page={`capability.${page}`}
+                  data-guide-name={srv.name} data-guide-what={mcpGuideWhat(srv.name, address(srv))}
+                  data-guide-why={mcpGuideWhy(srv.name)} data-guide-common={mcpGuideCommon(srv.name, address(srv))}
+                  data-guide-recommend={t('guide.dynamic.mcp.assigned', { target: targetName(x.id) })}>
                   <McpMark name={srv.name} size={16} />{srv.name}
                   {#if tokensOf(srv) > 0}<span class="tk">{tokMark(srv)}</span>{/if}
                 </span>
@@ -1686,7 +1753,7 @@
 
       <!-- ================= MCP server ของคุณ ================= -->
       {#if page === 'mine'}
-        <h2>{t('capability.navMine')}</h2>
+        <h2><span data-guide="capability.mcp.header">{t('capability.navMine')}</span></h2>
         <p class="muted set-sub">{t('capability.mineLede')}</p>
 
         {#if loaded && servers.length === 0}
@@ -1731,7 +1798,10 @@
                 <Icon name="refreshCw" size={13} /> {t('capability.testAll')}
               </button>
             {/if}
-            <button data-guide="capability.mcp.add_btn" class="ctrl" disabled={busy !== ''} onclick={addServer}><Icon name="plus" size={13} /> {t('capability.addServer')}</button>
+            <!-- The safe first road is the curated shelf. Manual addresses
+                 remain available at the foot of that page when the server is
+                 not in the library. -->
+            <button data-guide="capability.mcp.add_btn" class="ctrl" disabled={busy !== ''} onclick={() => goPage('shelf')}><Icon name="plus" size={13} /> {t('capability.addServer')}</button>
           </div>
 
           <!-- A server just added from the library: registered, and nobody
@@ -1812,7 +1882,11 @@
       {/if}
 
       {#snippet shelfCard(p: MCPPreset)}
-        <article class="chair-card agc">
+        <article class="chair-card agc"
+          data-guide={guideItemId('mcp', 'library', p.name)} data-guide-page="capability.shelf"
+          data-guide-name={p.name} data-guide-what={mcpGuideWhat(p.name, p.desc)}
+          data-guide-why={p.why || t('guide.dynamic.mcp.whyFallback')}
+          data-guide-common={mcpGuideCommon(p.name, p.desc)} data-guide-recommend={mcpPresetRecommend(p)}>
           <div class="chair-body">
             <div class="chair-who">
               <McpMark name={p.name} size={38} />
@@ -1870,7 +1944,7 @@
       {/if}
       <p class="office-note">
         {t('capability.libNote')}
-        <button class="linklike" onclick={addServer}>{t('capability.addByAddress')}</button>
+        <button data-guide="capability.mcp.manual_add" class="linklike" onclick={addServer}>{t('capability.addByAddress')}</button>
         · <button class="linklike" onclick={askAssistant}>{t('capability.aiFind')}</button>
       </p>
       <p class="office-note">{t('capability.mcpShelfFoot')}</p>
@@ -1879,7 +1953,10 @@
       <!-- A skill card says what it is and where it is. The bundled band says
            once what a bundled row used to repeat thirty times. -->
       {#snippet skillCard(s: SkillRow)}
-        <div class="chair-card agc cap-srv cap-skill">
+        <div class="chair-card agc cap-srv cap-skill"
+          data-guide={guideItemId('skill', 'installed', s.name)} data-guide-page="capability.skills"
+          data-guide-name={s.name} data-guide-what={skillGuideWhat(s)} data-guide-why={skillGuideWhy(s)}
+          data-guide-common={skillGuideCommon(s)} data-guide-recommend={skillGuideRecommend(s)}>
           <div class="chair-body">
             <div class="chair-who">
               <span class="cap-mark" style="--px:38px; --h:{coverHue(s.name)}" aria-hidden="true">{skillMark(s.name)}</span>
@@ -1902,7 +1979,7 @@
 
       <!-- ================= สกิลของคุณ ================= -->
       {#if page === 'skills'}
-        <h2>{t('capability.navSkills')}</h2>
+        <h2><span data-guide="capability.skills.header">{t('capability.navSkills')}</span></h2>
         <p class="muted set-sub">{t('capability.skillsLede')}</p>
         {#if loaded}
           <div data-guide="capability.skills.search" class="sec-head">
@@ -1974,7 +2051,11 @@
                   <p class="chair-desc" title={personDesc(x)}>{roleOf(x)}</p>
                   <div class="cap-holds">
                     {#each own as s (s.name)}
-                      <span class="cap-hold" class:mine={!s.bundled} title={s.description}>
+                      <span class="cap-hold" class:mine={!s.bundled} title={s.description}
+                        data-guide={guideItemId('skill', x.id, s.name)} data-guide-page="capability.skagents"
+                        data-guide-name={s.name} data-guide-what={skillGuideWhat(s)} data-guide-why={skillGuideWhy(s)}
+                        data-guide-common={skillGuideCommon(s)}
+                        data-guide-recommend={t('guide.dynamic.skill.assigned', { target: x.name })}>
                         <span class="cap-mark" style="--px:16px; --h:{coverHue(s.name)}" aria-hidden="true">{skillMark(s.name)}</span>{shortSkill(s.name)}
                       </span>
                     {/each}
@@ -2006,7 +2087,10 @@
         <div class="office-grid">
           {#each winSkShelf.take(SKILL_PRESETS) as p (p.name)}
             {@const got = installedOf(p)}
-            <article class="chair-card agc">
+            <article class="chair-card agc"
+              data-guide={guideItemId('skill-pack', 'library', p.name)} data-guide-page="capability.skshelf"
+              data-guide-name={p.name} data-guide-what={skillPackWhat(p)} data-guide-why={p.why}
+              data-guide-common={p.desc} data-guide-recommend={skillPackRecommend(p)}>
               <div class="chair-body">
                 <div class="chair-who">
                   <span class="cap-mark" style="--px:38px; --h:{coverHue(p.name)}" aria-hidden="true">{p.name.split('/').map((part) => part[0]).join('')}</span>
@@ -2113,7 +2197,7 @@
            tool until the row is clicked: a description can run to a
            paragraph, and forty rows of paragraphs cannot be scanned. -->
       {#if page === 'tools'}
-        <h2>{t('settings.toolsHeading', { n: builtinTools.length })}</h2>
+        <h2><span data-guide="capability.builtins.header">{t('settings.toolsHeading', { n: builtinTools.length })}</span></h2>
         <p class="muted set-sub">{t('capability.toolsLede')}</p>
         {#if loaded}
           {#each toolGroups as g (g.key)}
@@ -2154,7 +2238,7 @@
            the editor on one card, and the card at the top that asks the
            assistant to write one. -->
       {#if page === 'prompts'}
-        <h2>{t('settings.prompts')}</h2>
+        <h2><span data-guide="capability.prompts.header">{t('settings.prompts')}</span></h2>
         <p class="muted set-sub">{t('settings.promptsDesc')}</p>
 
         {#if editing === null}
@@ -2352,7 +2436,7 @@
            row's detail, not rows of their own. Reading this page the other
            way round is what produces a register of promises. -->
       {#if page === 'computer'}
-        <h2>{t('settings.computer')}</h2>
+        <h2><span data-guide="capability.computer.header">{t('settings.computer')}</span></h2>
         <p class="muted set-sub">{t('settings.computerDesc')}</p>
 
         <div class="settings-card">
@@ -2392,7 +2476,7 @@
               </span></div>
             {/if}
 
-            {#each computerRows as row (row.name)}
+            {#each computerRows as row (row.id)}
               <div class="set-row">
                 <!-- The program's own icon, the same picture the taskbar shows.
                      Drawn beside the name rather than instead of it: a person
@@ -2422,7 +2506,7 @@
                     {t('settings.computerRevoke')}
                   </button>
                 {:else}
-                  <button class="ctrl" onclick={() => allowComputerApp(row.name)}>
+                  <button class="ctrl" onclick={() => allowComputerApp(row.id)}>
                     {t('settings.computerAllow')}
                   </button>
                 {/if}
@@ -2446,7 +2530,7 @@
             {/each}
           {/if}
 
-          <!-- Rows 2 to 4 stay visible and say why they cannot be switched on.
+          <!-- Rows 2 and 3 stay visible and say why they cannot be switched on.
                connections.go carries the same rule in a long comment, learned
                twice the hard way: a control that vanishes in the broken state
                is a dead end, not a tidy UI. -->
@@ -2463,14 +2547,6 @@
             <span class="set-txt">
               <span class="t">Microsoft Edge</span>
               <span class="d">{t('settings.computerNeedsExtension')}</span>
-            </span>
-            <span class="mcp-badge">{t('settings.computerNotYet')}</span>
-          </div>
-          <div class="set-row">
-            {#if computerFixedIcons.excel}<img class="prog-icon" src={computerFixedIcons.excel} alt="" />{:else}<span class="prog-icon prog-icon-none"></span>{/if}
-            <span class="set-txt">
-              <span class="t">Microsoft Excel</span>
-              <span class="d">{t('settings.computerExcelDesc')}</span>
             </span>
             <span class="mcp-badge">{t('settings.computerNotYet')}</span>
           </div>
@@ -2535,7 +2611,7 @@
           </div>
         {/snippet}
 
-        <h2>{t('settings.connections')}</h2>
+        <h2><span data-guide="capability.connections.header">{t('settings.connections')}</span></h2>
         <p class="muted set-sub">{t('settings.connectionsDesc')}</p>
 
         <!-- A register, drawn the way the MCP register in ตั้งค่า drew its
@@ -2554,11 +2630,14 @@
                 onclick={() => (connOpen = open ? '' : row.id)}
               >
                 <span class="reg-caret" class:open>›</span>
+                <span class="conn-service-icon" class:connected={row.connected} aria-hidden="true">
+                  <ConnectionMark id={row.id} size={18} />
+                </span>
                 <span class="set-txt">
                   <span class="t">
                     <span class="dot" class:green={row.connected}></span>
                     {row.label}
-                    {#if row.source === 'connection'}
+                    {#if row.source === 'connection' && !row.channel && !row.system}
                       <span class="mcp-badge" class:mcp-badge-warn={servesNobody(row)}>
                         {servesNobody(row) ? t('settings.connForNobody') : placementSummary(row)}
                       </span>
@@ -2601,6 +2680,27 @@
                     </div>
                   {/if}
 
+                  {#if row.channel}
+                    <!-- This is runtime truth, not explanatory copy: Engine.Connections
+                         fills these fields from the same connectedBotDesk and config
+                         used when newBotConversation builds the real conversation. -->
+                    {@const routeDesk = deskMeta(row.channel_desk || 'assistant')}
+                    <div class="conn-route" data-channel-desk={row.channel_desk ?? ''}>
+                      <span class="mem-scope-ic conn-route-icon mem-tone-{routeDesk.tone}" class:face={!!routeDesk.head} aria-hidden="true">
+                        <ScopeMark meta={routeDesk} size={18} face={38} />
+                      </span>
+                      <span class="conn-route-copy">
+                        <span class="conn-route-title">
+                          {t('settings.connBotRouteTitle', { name: row.channel_assistant || 'Aetox' })}
+                        </span>
+                        <span class="d muted">
+                          {t('settings.connBotRouteDetail', { model: channelModel(row) })}
+                        </span>
+                      </span>
+                      <span class="conn-route-badge"><Icon name="layoutList" size={11} /> {t('settings.connBotAssistantOnly')}</span>
+                    </div>
+                  {/if}
+
                   <!-- Placement. Same ids and same list as an MCP server's
                        `for:`, so what a user learns on ของคุณ is true here.
 
@@ -2611,7 +2711,28 @@
                        usable nowhere" (2026-08-10). The backend enforces the
                        lock either way; this draws the fact instead of a choice
                        that would be silently corrected. -->
-                  {#if row.home_agent}
+                  {#if row.channel}
+                    <div class="conn-part">
+                      <div class="conn-part-head">
+                        <Icon name="shield" size={13} />
+                        <span>{t('settings.connBotPairing')}</span>
+                      </div>
+                      {#if row.paired}
+                        <div class="conn-bot-state ok"><Icon name="check" size={13} /> {t('settings.connBotPaired', { name: row.channel_assistant || 'Aetox' })}</div>
+                      {:else if row.pairing_code}
+                        <div class="conn-bot-state"><Icon name="alertTriangle" size={13} /> {t('settings.connBotConnectedNeedPair')}</div>
+                        <div class="d muted">{t('settings.connBotPairingHint')}</div>
+                        <div class="conn-pair-code"><Icon name="shield" size={13} /><span>/pair {row.pairing_code}</span></div>
+                        <div class="d muted">{t('settings.connBotPairingWhy')}</div>
+                      {:else}
+                        <div class="d muted">{t('settings.connBotPairAfterConnect')}</div>
+                      {/if}
+                    </div>
+                  {:else if row.system}
+                    <!-- System credentials belong to the built-in integration.
+                         Its tool manifests decide where the capability exists;
+                         another audience picker would duplicate that rule. -->
+                  {:else if row.home_agent}
                     <div class="eyebrow conn-eyebrow">{t('settings.connFor')}</div>
                     <div class="d muted">{t('settings.connHomeLocked', { agent: row.home_agent })}</div>
                   {:else}
@@ -2672,14 +2793,14 @@
                       <div class="d muted">{t('settings.connAccountPartHint')}</div>
                     {/if}
                     <div class="eyebrow conn-eyebrow">
-                      {row.needs_base_url ? t('automation.keyLabel') : t('settings.ghTokenLabel')}
+                      {row.channel ? t('settings.connBotTokenLabel') : (row.needs_base_url ? t('automation.keyLabel') : t('settings.ghTokenLabel'))}
                     </div>
                     <div class="mset-keyrow">
                       <!-- type=password: this is a live credential, and a
                            settings page is the one screen people screen-share. -->
                       <input
                         class="ctrl key-input" type="password" autocomplete="off"
-                        placeholder={row.needs_base_url ? '' : t('settings.ghTokenPlaceholder')}
+                        placeholder={row.channel ? t('settings.connBotTokenPlaceholder') : (row.needs_base_url ? '' : t('settings.ghTokenPlaceholder'))}
                         value={connToken[row.id] ?? ''}
                         oninput={(e) => (connToken[row.id] = e.currentTarget.value)}
                         onkeydown={(e) => e.key === 'Enter' && connectAccount(row)}
@@ -2689,10 +2810,11 @@
                         disabled={connBusy !== '' || !connectable(row)}
                         onclick={() => connectAccount(row)}
                       >
+                        <Icon name={connBusy === row.id + ':connect' ? 'loaderCircle' : 'plug'} size={13} />
                         {connBusy === row.id + ':connect' ? t('settings.ghConnecting') : t('settings.ghConnect')}
                       </button>
                     </div>
-                    <div class="d muted">{t('settings.connTokenHint', { name: row.label })}</div>
+                    <div class="d muted">{row.channel ? t('settings.connBotTokenHint', { name: row.label }) : t('settings.connTokenHint', { name: row.label })}</div>
                   {/if}
 
                   <!-- Once connected the address field is gone, and with it the
@@ -2707,17 +2829,18 @@
                     <div class="d muted eyebrow-grow"></div>
                     {#if row.token_url && row.source !== 'connection'}
                       <button class="ctrl" onclick={() => BrowserOpenURL(row.token_url ?? '')}>
-                        {t('settings.connCreateToken', { name: row.label })}
+                        <Icon name="externalLink" size={13} /> {t('settings.connCreateToken', { name: row.label })}
                       </button>
                     {/if}
                     {#if row.connected}
                       <button class="ctrl" disabled={connBusy !== ''} onclick={() => verifyConnection(row)}>
+                        <Icon name={connBusy === row.id + ':verify' ? 'loaderCircle' : 'refreshCw'} size={13} />
                         {connBusy === row.id + ':verify' ? t('settings.ghVerifying') : t('settings.ghVerify')}
                       </button>
                     {/if}
                     {#if row.source === 'connection'}
                       <button class="ctrl ctrl-danger" disabled={connBusy !== ''} onclick={() => (confirmConn = row)}>
-                        {t('settings.ghDisconnect')}
+                        <Icon name="x" size={13} /> {t('settings.ghDisconnect')}
                       </button>
                     {/if}
                   </div>
@@ -2779,6 +2902,12 @@
               <button
                 class="cap-pickrow" class:need class:dead={s.disabled}
                 role="switch" aria-checked={on}
+                data-guide={guideItemId('mcp', `picker-${pickFor}`, s.name)} data-guide-page={`capability.${page}`}
+                data-guide-name={s.name} data-guide-what={mcpGuideWhat(s.name, address(s))}
+                data-guide-why={mcpGuideWhy(s.name)} data-guide-common={mcpGuideCommon(s.name, address(s))}
+                data-guide-recommend={on
+                  ? t('guide.dynamic.mcp.assigned', { target: targetName(pickFor) })
+                  : t('guide.dynamic.mcp.notAssigned', { target: targetName(pickFor) })}
                 title={s.disabled ? t('capability.cellDead') : need ? t('capability.cellNeed') : ''}
                 disabled={busy !== '' || s.disabled}
                 onclick={() => toggleTarget(s, pickFor)}
@@ -2820,7 +2949,11 @@
     <div class="cap-sheet" role="dialog" aria-modal="true" aria-labelledby="cap-sheet-title" bind:this={sheetEl}>
       <div class="cap-sheet-head">
         {#if sheet.original}<McpMark name={sheet.original} size={30} />{/if}
-        <h3 id="cap-sheet-title">{sheet.original ? t('capability.sheetEdit', { name: sheet.original }) : t('capability.addServer')}</h3>
+        {#if sheet.original}
+          <h3 id="cap-sheet-title">{t('capability.sheetEdit', { name: sheet.original })}</h3>
+        {:else}
+          <h3 id="cap-sheet-title" data-guide="capability.mcp.manual_form">{t('capability.addServer')}</h3>
+        {/if}
         <button class="icobtn" aria-label={t('settings.cancel')} onclick={closeSheet}><Icon name="x" size={15} /></button>
       </div>
 
@@ -2883,7 +3016,17 @@
             </div>
             <div class="cap-toollist" role="group" aria-label={t('capability.tabTools')}>
               {#each toolRows as r (r.name)}
-                <label class="cap-toolrow" class:on={toolOn(r.name)}>
+                <label class="cap-toolrow" class:on={toolOn(r.name)}
+                  data-guide={guideItemId('mcp-tool', sheetRow.name, r.name)} data-guide-page={`capability.${page}`}
+                  data-guide-name={r.name}
+                  data-guide-what={t('guide.dynamic.mcpTool.what', {
+                    tool: r.name,
+                    server: sheetRow.name,
+                    description: r.description || t('guide.dynamic.mcpTool.noDescription'),
+                  })}
+                  data-guide-why={t('guide.dynamic.mcpTool.why', { server: sheetRow.name })}
+                  data-guide-common={r.description || t('guide.dynamic.mcpTool.noDescription')}
+                  data-guide-recommend={t('guide.dynamic.mcpTool.recommend', { tokens: String(r.tokens) })}>
                   <input type="checkbox" checked={toolOn(r.name)} onchange={() => toggleTool(r.name)} />
                   <span class="nm">{r.name}</span>
                   {#if r.tokens > 0}<span class="tk">~{fmtTokens(r.tokens)}</span>{/if}
@@ -3002,7 +3145,11 @@
         {#if shipped.length > 0}
           <div class="cap-picks">
             {#each shipped as s (s.name)}
-              <span class="cap-hold" title={s.description}><span class="cap-mark" style="--px:16px; --h:{coverHue(s.name)}" aria-hidden="true">{skillMark(s.name)}</span>{shortSkill(s.name)}</span>
+              <span class="cap-hold" title={s.description}
+                data-guide={guideItemId('skill', `shipped-${skillPick}`, s.name)} data-guide-page="capability.skagents"
+                data-guide-name={s.name} data-guide-what={skillGuideWhat(s)} data-guide-why={skillGuideWhy(s)}
+                data-guide-common={skillGuideCommon(s)}
+                data-guide-recommend={t('guide.dynamic.skill.assigned', { target: skillPick })}><span class="cap-mark" style="--px:16px; --h:{coverHue(s.name)}" aria-hidden="true">{skillMark(s.name)}</span>{shortSkill(s.name)}</span>
             {/each}
           </div>
           <p class="cap-means">{t('capability.skillOwnShipped')}</p>
@@ -3018,7 +3165,14 @@
         <div class="cap-pickrows">
           {#each skills as s (s.name)}
             {@const on = hasOwn(skillPick, s.name)}
-            <button class="cap-pickrow" role="switch" aria-checked={on} disabled={busy !== ''} onclick={() => toggleAgentSkill(skillPick, s)}>
+            <button class="cap-pickrow" role="switch" aria-checked={on} disabled={busy !== ''}
+              data-guide={guideItemId('skill', `picker-${skillPick}`, s.name)} data-guide-page="capability.skagents"
+              data-guide-name={s.name} data-guide-what={skillGuideWhat(s)} data-guide-why={skillGuideWhy(s)}
+              data-guide-common={skillGuideCommon(s)}
+              data-guide-recommend={on
+                ? t('guide.dynamic.skill.assigned', { target: skillPick })
+                : t('guide.dynamic.skill.notAssigned', { target: skillPick })}
+              onclick={() => toggleAgentSkill(skillPick, s)}>
               <span class="cap-mark" style="--px:28px; --h:{coverHue(s.name)}" aria-hidden="true">{skillMark(s.name)}</span>
               <span class="txt">
                 <span class="nm">{s.name}</span>
@@ -3129,12 +3283,25 @@
   .cap-error { margin-bottom: 14px; }
   .cap-filter { margin: -4px 0 12px; }
   .cap-sec { margin-top: 36px; }
-  /* The brand tile on a card: style.css paints .cap-mark.logo on
-     --surface-raised, which is the card's own ground, so the logo sat on
-     nothing and only showed once hover lifted the card ("โลโก้ควรจะชัดตั้งแต่
-     แรก ไม่ใช่ต้องรอเอาเมาส์ไปสัมผัส", 13 ก.ย.). A plate one step down, with
-     its own edge, at every size the room draws it. */
-  .cap-page .chair-card .cap-mark.logo { background: var(--surface-sunken); box-shadow: inset 0 0 0 1px var(--border-default); }
+  /* The brand tile on a card must lead the card, not read like a small toolbar
+     glyph. The paths in mcpMarks.ts are already normalised to 21/24 of their
+     viewBox; applying the generic 62% inset again reduced the visible mark to
+     about 20px inside a 38px tile. Cards undo that second shrink and give the
+     plate a restrained tint from the mark's own currentColor. The tile stays
+     flat: a neutral border, no coloured halo and no shadow under the glyph.
+     McpMark is a child component, so only its mark is global here; without
+     that boundary crossing this scoped rule never reaches the rendered span. */
+  .cap-page .chair-card :global(.cap-mark.logo) {
+    background: color-mix(in srgb, currentColor 12%, var(--surface-sunken));
+    border: 1px solid var(--border-default);
+    box-sizing: border-box;
+    box-shadow: none;
+  }
+  .cap-page .chair-card :global(.cap-mark.logo svg) {
+    width: 80%;
+    height: 80%;
+    filter: none;
+  }
   .cap-tr {
     font-family: var(--mono); font-size: var(--fs-2xs); font-weight: 400;
     color: var(--text-dim); border: 1px solid var(--border-default);

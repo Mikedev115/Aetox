@@ -188,6 +188,58 @@ describe('the gallery only draws what it needs to', () => {
     expect(screen.getByText('สัปดาห์นี้').className).not.toContain('on')
   })
 
+  it('keeps the newest range when an older disk read finishes last', async () => {
+    render(Artifacts, { onClose: () => {} })
+    await waitFor(() => expect(screen.getByText('สรุปยอด.xlsx')).toBeTruthy())
+
+    let finishMonth!: (page: unknown) => void
+    vi.mocked(ListArtifactsIn).mockImplementation(async (want: any) => {
+      if (want === 'month') return await new Promise((resolve) => { finishMonth = resolve }) as any
+      return {
+        files: [file({ name: 'ล่าสุด.txt', path: 'C:/x/output/s/ล่าสุด.txt' })],
+        range: 'all', total: 1,
+      } as any
+    })
+
+    const rangeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.art-time .art-range'))
+    await fireEvent.click(rangeButtons[1]) // เดือนนี้ — deliberately held back
+    await fireEvent.click(rangeButtons[2]) // ทั้งหมด — returns first
+    await waitFor(() => expect(screen.getByText('ล่าสุด.txt')).toBeTruthy())
+
+    finishMonth({
+      files: [file({ name: 'คำตอบเก่า.txt', path: 'C:/x/output/s/คำตอบเก่า.txt' })],
+      range: 'month', total: 1,
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(screen.queryByText('คำตอบเก่า.txt')).toBeNull()
+    expect(rangeButtons[2].className).toContain('on')
+  })
+
+  it('decodes no more than four previews at once', async () => {
+    vi.mocked(ListArtifactsIn).mockResolvedValue({ files: many(8), range: 'week', total: 8 } as any)
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    let active = 0
+    let mostActive = 0
+    vi.mocked(ArtifactPreview).mockImplementation(async () => {
+      active++
+      mostActive = Math.max(mostActive, active)
+      await gate
+      active--
+      return { kind: 'none' } as any
+    })
+
+    render(Artifacts, { onClose: () => {} })
+    await waitFor(() => expect(vi.mocked(ArtifactPreview)).toHaveBeenCalledTimes(4))
+    expect(mostActive).toBe(4)
+
+    release()
+    await waitFor(() => expect(vi.mocked(ArtifactPreview)).toHaveBeenCalledTimes(8))
+    expect(mostActive).toBe(4)
+  })
+
   // A subfolder under a session is one thing, so it is one card. The reason it
   // matters: browser screenshots land in work/, and 46 of the 244 files in the
   // owner's gallery were those — nine in one session, with the document he had

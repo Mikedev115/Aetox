@@ -19,8 +19,8 @@
 // mounting, a panel being hidden by a class (which is why `class` and `style`
 // are watched too: `currentPage` only counts signs that are laid out).
 
-import { PLACE_ATTR, type PageId } from '../rooms'
-import { currentPage } from './where'
+import { CONTEXT_ATTR, PLACE_ATTR, type PageId } from '../rooms'
+import { currentContext, currentPage, onScreen } from './where'
 
 // Long enough that one navigation is one answer, not a dozen — mounting a page
 // fires hundreds of mutations — and short enough that the guide reacts while
@@ -35,18 +35,22 @@ const SETTLE_MS = 150
  * Returns the way to stop watching, and the caller must — the observer
  * outliving the figure is a leak with opinions.
  */
-export function watchPlace(onChange: (page: PageId | null) => void): () => void {
+export function watchPlace(onChange: (page: PageId | null, contextChanged: boolean) => void): () => void {
   if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return () => {}
 
   let last = currentPage()
+  let lastContext = currentContext()
   let timer: ReturnType<typeof setTimeout> | null = null
 
   const look = () => {
     timer = null
     const now = currentPage()
-    if (now === last) return
+    const context = currentContext()
+    if (now === last && context === lastContext) return
+    const contextChanged = context !== lastContext
     last = now
-    onChange(now)
+    lastContext = context
+    onChange(now, contextChanged)
   }
 
   const nudge = () => {
@@ -58,9 +62,41 @@ export function watchPlace(onChange: (page: PageId | null) => void): () => void 
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ['class', 'style', 'hidden', PLACE_ATTR],
+    attributeFilter: ['class', 'style', 'hidden', PLACE_ATTR, CONTEXT_ATTR],
   })
 
+  return () => {
+    obs.disconnect()
+    if (timer !== null) clearTimeout(timer)
+  }
+}
+
+/** The inspector is a sub-room inside the Code page: opening it does not
+ * change `data-guide-place`, but it changes what the person can learn next.
+ * Observe the same DOM evidence navigation uses so mouse, shortcut, and an
+ * automatic reveal all produce the same guide reaction. */
+export function watchInspector(onChange: (open: boolean) => void): () => void {
+  if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return () => {}
+
+  let last = onScreen('workbench.add_tab')
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const look = () => {
+    timer = null
+    const open = onScreen('workbench.add_tab')
+    if (open === last) return
+    last = open
+    onChange(open)
+  }
+  const nudge = () => {
+    if (timer === null) timer = setTimeout(look, SETTLE_MS)
+  }
+  const obs = new MutationObserver(nudge)
+  obs.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class', 'style', 'hidden'],
+  })
   return () => {
     obs.disconnect()
     if (timer !== null) clearTimeout(timer)

@@ -86,9 +86,13 @@ export interface Session {
 
 export interface RecentProject {
   key: string
+  /** User-facing alias. The folder itself is never renamed by editing this. */
   name: string
+  folder?: string
+  description?: string
   path: string
   ago: string
+  sessions?: number
   active?: boolean
   snippet?: string
 }
@@ -132,6 +136,7 @@ export interface PendingModel {
   provider: string
   modelName: string
   thinkLevel: string
+  serviceTier?: string
   wireFormat: string
   /** What the preflight made of this switch while the old turn kept answering:
    *  '' not attempted — nothing to attempt, or a runtime whose weights live on
@@ -146,6 +151,8 @@ export interface ModelStatus {
   provider: string
   modelName: string
   thinkLevel: string
+  /** Provider processing lane. Empty is normal; Codex uses `priority` for Fast. */
+  serviceTier?: string
   contextUsed: number
   contextMax: number
   approval: ApprovalMode
@@ -1137,6 +1144,10 @@ export interface CockpitState {
    *  Same lifecycle as desk and chair: fixed at birth, read back from the
    *  engine, never remembered independently. It is what the picker opens on. */
   team: string
+  /** External chat carrying the open session: telegram, discord, or '' when
+   *  the conversation is taking place in Aetox itself. Fixed at birth and
+   *  restored with the session so its mark cannot follow the wrong chat. */
+  transport: string
   /** The โปรเจกต์ the open session is being held inside (COMPANY.md §84), ''
    *  for a chat held outside every project. Same lifecycle as desk and chair:
    *  fixed when the session is born, read back from the engine when one is
@@ -1241,6 +1252,13 @@ export interface CockpitState {
   /** Why the last attempt to open a session from the history list failed, in
    *  the engine's own words. '' when the last one worked. */
   sessionError: string
+  /** The chat row the window is opening, or '' while no switch is in flight.
+   *
+   *  This is the switch's state rather than either conversation's: it is set
+   *  at the click, before the engine round-trip, so the selected row and the
+   *  centre of the window can answer immediately instead of leaving the old
+   *  conversation on screen until LoadSession finishes. */
+  openingSession: string
   /** The live state of a chat that is working while the window looks at another.
    *
    *  Replaces `peek`, which held exactly one field of this (the messages) and
@@ -1368,7 +1386,7 @@ export function emptyCockpitState(): CockpitState {
     historyFault: null,
     spaceHistory: [],
     spaces: [],
-    model: { provider: '', modelName: '', thinkLevel: '', contextUsed: 0, contextMax: 0, approval: 'ask', wireFormat: '', warning: '', pending: null },
+    model: { provider: '', modelName: '', thinkLevel: '', serviceTier: '', contextUsed: 0, contextMax: 0, approval: 'ask', wireFormat: '', warning: '', pending: null },
     chat: [],
     task: { elapsed: '', steps: [] },
     turnFiles: [],
@@ -1379,6 +1397,7 @@ export function emptyCockpitState(): CockpitState {
     walkingTo: '',
     chair: '',
     team: '',
+    transport: '',
     space: '',
     stance: '',
     stances: [],
@@ -1413,6 +1432,7 @@ export function emptyCockpitState(): CockpitState {
     capabilityIntent: null,
     pendingImages: [],
     sessionError: '',
+    openingSession: '',
     parked: {},
     unread: {},
     openSession: '',

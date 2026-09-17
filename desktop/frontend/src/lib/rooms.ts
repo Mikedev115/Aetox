@@ -103,3 +103,9 @@ export function roomOf(page: PageId): string {
  *  One spelling, written down once — a second copy of this string is a bug
  *  nothing would report. */
 export const PLACE_ATTR = 'data-guide-place'
+
+/** A page can keep the same physical room while its working context changes.
+ * Chat does this when the top-left door swaps ผู้ช่วย ↔ โค้ด. The guide watches
+ * this second sign so a desk switch is a real state change, not a silent text
+ * replacement inside a page still named `chat`. */
+export const CONTEXT_ATTR = 'data-guide-context'

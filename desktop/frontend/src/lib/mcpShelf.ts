@@ -50,10 +50,9 @@ export interface MCPPreset {
   group: ShelfGroup
   // Whether somebody on this team has connected it and used it, and then
   // written `why` from what happened. False is the honest state for an entry
-  // that clears every rule on paper and has never been pressed — those used
-  // to carry their placeholder INSIDE `why`, in square brackets, and the room
-  // printed the brackets to the user. Since 2026-09-13 the room draws no
-  // unproven entry at all: false is the owner's queue, not a shelf band.
+  // whose endpoint/auth path was verified but has not yet been exercised
+  // against the owner's account. The room still draws it in the sign-in band;
+  // this flag must not be presented as "broken" or silently hide the row.
   proven: boolean
   // What the server offered when somebody here last connected to it, and
   // what that tool block costs on every message (the context meter's own
@@ -177,6 +176,13 @@ export const MCP_PRESETS: MCPPreset[] = [
   // bill (desktop/videotooling.go videoEditorTools) that must not exist
   // twice.
   { name: 'kinocut', group: 'local', proven: true, desc: 'Cut, subtitle and render video, on this machine', why: 'Aetox reads video and produces none. This is the half that cuts and renders. Install it from ห้องงานวิดีโอ, which fetches it the same way ffmpeg and Tesseract are fetched; this entry is the connection.', command: [] },
+  // Local quota reader, verified on 2026-09-17 against v1.2.5 with a real
+  // initialize, tools/list and get_quota call. It reads the credentials the
+  // four coding agents already keep on this machine; there is no key to paste
+  // into Aetox and no credential is copied into mcp-servers.json. Pin the
+  // package version here: an MCP process sees local agent credentials, so a
+  // shelf entry must not silently execute a different release next week.
+  { name: 'ai-quota', group: 'local', proven: true, toolCount: 1, tokens: 88, measured: '2026-09-17', desc: 'Claude, Gemini, Copilot and Codex limits in one view', why: "Aetox only sees limits reported to its own model calls. This reads the four coding-agent accounts already signed in on this machine, including each reset window, in one call.", command: ['npx', '-y', '@metyatech/ai-quota@1.2.5', '--mcp'] },
   { name: 'github', group: 'code', proven: true, desc: 'Repos, pull requests, issues, CI', why: "Aetox's own github tool only reads. This is the half that acts — opening a pull request, commenting, moving an issue.", url: 'https://api.githubcopilot.com/mcp/', headers: ['Authorization: Bearer ${connect:github}'] },
   // Second because it is the other one a bundled agent asks for by name — the
   // deepresearch agent ships `needs: mcp:firecrawl`, and the 12 ส.ค. half of the
@@ -218,6 +224,12 @@ export const MCP_PRESETS: MCPPreset[] = [
   // to 12 hours in the console, up to 7 days from the SDK).
   { name: 'microsoft-learn', group: 'search', proven: true, toolCount: 3, tokens: 1016, measured: '2026-09-12', desc: "Microsoft's own docs: Windows, Azure, .NET, PowerShell, Office", why: "Microsoft's own index of its own docs, which is a different thing from a web search that happens to land there — and a code-sample search web_search cannot do at all. Asked for Get-ChildItem hidden files it returned the exact provider page naming the parameter, not a forum thread about it.", url: 'https://learn.microsoft.com/api/mcp' },
   { name: 'aws-knowledge', group: 'search', proven: true, toolCount: 5, tokens: 1978, measured: '2026-09-12', desc: "AWS's own docs, plus regions and per-region service availability", why: "AWS's own docs index, returning the verbatim page section rather than a snippet, so the answer is usually already in the result. Two things no web search returns as data sit beside it: the region list and which services exist in which region.", url: 'https://knowledge-mcp.global.api.aws' },
+  // Added 2026-09-17 after live initialize, tools/list and tools/call probes.
+  // CoinGecko returned current BTC/ETH prices from its pre-authenticated SDK;
+  // WolframAlpha resolved Bangkok → Chiang Mai as 581.5 km and supplied the
+  // unit conversions. These are data engines, not another web-search skin.
+  { name: 'coingecko', group: 'search', proven: true, toolCount: 2, tokens: 513, measured: '2026-09-17', desc: 'Live crypto prices, markets and historical data', why: 'Live and historical crypto market data as structured numbers. A web result can quote a price; this can query and compare the market directly.', url: 'https://mcp.api.coingecko.com/mcp' },
+  { name: 'wolfram', group: 'search', proven: true, toolCount: 3, tokens: 564, measured: '2026-09-17', desc: 'Wolfram|Alpha knowledge and Wolfram Language computation', why: 'Computes with units, scientific entities and real-world knowledge instead of only evaluating arithmetic whose numbers are already known.', url: 'https://agenttools.wolfram.com/mcp' },
   // zapier answers 401 "Expected Bearer token for MCP authentication", and
   // there are two ways to get one: paste the token from the user's own Zapier
   // MCP page, or the sign-in — its authorization server publishes a
@@ -320,6 +332,41 @@ export const MCP_PRESETS: MCPPreset[] = [
   { name: 'runwayml', group: 'apps', proven: false, desc: 'Generate and edit video and images with AI models', why: '', url: 'https://mcp.runwayml.com/mcp', headers: ['Authorization: Bearer ${connect:runwayml}'], oauth: true },
   { name: 'deepl', group: 'apps', proven: false, desc: 'Translate text with DeepL', why: '', url: 'https://mcp.deepl.com/v1/mcp', headers: ['Authorization: Bearer ${connect:deepl}'], oauth: true },
   { name: 'mapbox', group: 'apps', proven: false, desc: 'Maps, geocoding, routing and map styles', why: '', url: 'https://mcp.mapbox.com/mcp', headers: ['Authorization: Bearer ${connect:mapbox}'], oauth: true },
+
+  // ---- Official hosted servers verified live on 2026-09-17 ----
+  //
+  // Each endpoint answered a real initialize with 401 plus RFC 9728 resource
+  // metadata; its authorization server advertises PKCE S256 and an RFC 7591
+  // registration_endpoint. Postman and Linear accept a public client. GitLab
+  // advertises client_secret_basic/post only, the same confidential-DCR shape
+  // Supabase exposed and mcpauth.go now persists and sends. Cloudflare accepts
+  // all three methods. No pasted token or vendor-specific client id is needed.
+  { name: 'gitlab', group: 'code', proven: false, desc: 'Projects, merge requests, issues and pipelines in GitLab', why: '', url: 'https://gitlab.com/api/v4/mcp', headers: ['Authorization: Bearer ${connect:gitlab}'], oauth: true },
+  { name: 'postman', group: 'code', proven: false, desc: 'APIs, collections, environments, mocks and monitors in Postman', why: '', url: 'https://mcp.postman.com/mcp', headers: ['Authorization: Bearer ${connect:postman}'], oauth: true },
+  { name: 'linear', group: 'apps', proven: false, desc: 'Issues, projects and comments in a Linear workspace', why: '', url: 'https://mcp.linear.app/mcp', headers: ['Authorization: Bearer ${connect:linear}'], oauth: true },
+  { name: 'cloudflare-api', group: 'code', proven: false, desc: 'DNS, Workers, R2, Zero Trust and the full Cloudflare API', why: '', url: 'https://mcp.cloudflare.com/mcp', headers: ['Authorization: Bearer ${connect:cloudflare-api}'], oauth: true },
+
+  // ---- Creative, business documents, accounting and code, 2026-09-17 ----
+  //
+  // Miro, Replicate, Prisma and Dodo were re-probed live. Each returned a
+  // protected-resource challenge and its authorization server still publishes
+  // a registration_endpoint plus PKCE, so Aetox can create its client and open
+  // the sign-in without a vendor-specific client id. Dodo is here for the
+  // merchant-of-record half (products, subscriptions, payouts and cross-border
+  // tax/compliance), not as a duplicate bank ledger.
+  { name: 'miro', group: 'apps', proven: false, desc: 'Build whiteboards, diagrams, plans and workshops with your team', why: '', url: 'https://mcp.miro.com/mcp', headers: ['Authorization: Bearer ${connect:miro}'], oauth: true },
+  { name: 'replicate', group: 'apps', proven: false, desc: 'Find and run image, video, audio and AI models', why: '', url: 'https://mcp.replicate.com/mcp', headers: ['Authorization: Bearer ${connect:replicate}'], oauth: true },
+  { name: 'prisma', group: 'code', proven: false, desc: 'Inspect schemas, run SQL and manage Prisma Postgres databases and backups', why: '', url: 'https://mcp.prisma.io/mcp', headers: ['Authorization: Bearer ${connect:prisma}'], oauth: true },
+  { name: 'dodo-payments', group: 'apps', proven: false, desc: 'Global billing, subscriptions, payouts and merchant-of-record tax compliance', why: '', url: 'https://mcp.dodopayments.com/mcp', headers: ['Authorization: Bearer ${connect:dodo-payments}'], oauth: true },
+
+  // Smartsheet's official server deliberately supports a personal API token
+  // for custom MCP clients. A bare header opens Aetox's credential sheet before
+  // saving, rather than pretending its OAuth server supports DCR (it does not).
+  // Xero is the official stdio package and likewise asks for the two credentials
+  // its own setup guide requires. It is the accounting row: invoices, journals,
+  // bank transactions, P&L, balance sheet, trial balance, tax rates and payroll.
+  { name: 'smartsheet', group: 'apps', proven: false, desc: 'Sheets, reports, dashboards, project plans and workflow automations', why: '', url: 'https://mcp.smartsheet.com', headers: ['Authorization: Bearer'], hint: 'capability.hintSmartsheet' },
+  { name: 'xero', group: 'apps', proven: false, desc: 'Accounting, invoices, bank transactions, reports, tax rates and payroll', why: '', command: ['npx', '-y', '@xeroapi/xero-mcp-server@latest'], env: ['XERO_CLIENT_ID=', 'XERO_CLIENT_SECRET='], hint: 'capability.hintXero' },
 
   // ---- google-workspace, 2026-09-13 ----
   //

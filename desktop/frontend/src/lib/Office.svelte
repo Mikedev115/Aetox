@@ -147,7 +147,7 @@
 
 <div class="page-shell" data-guide-place="office">
   <header class="page-head" data-guide="office.header">
-    <button class="settings-back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
+    <button class="settings-back" data-guide="room.back" onclick={onClose}><Icon name="arrowLeft" size={14} /> {t('settings.backToApp')}</button>
     <div class="page-title">
       <h2>{t('desk.office')}</h2>
       <p>{t('office.intro')}</p>

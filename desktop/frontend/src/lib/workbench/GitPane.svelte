@@ -509,7 +509,9 @@
     try {
       const res = await GitCommitFiles(msg, chosen)
       if (res && res.outcome === 'committed') {
-        card.state = 'committed'
+        if (chosen.length === card.files.length) {
+          card.state = 'committed'
+        }
         noteCommitLanded()
         if (res.warning) {
           alert = {
@@ -541,29 +543,39 @@
     if (splitCards.length === 0) return
     committingAll = true
     alert = null
-    let landedAny = false
+    let landedCount = 0
+    let activeCard: SplitCard | null = null
+    let total = 0
     const warnings: string[] = []
     try {
-      const total = splitCards.length
-      for (let i = 0; i < splitCards.length; i++) {
-        const card = splitCards[i]
+      // refresh removes cards whose files left the working tree. Iterate this
+      // snapshot so a successful group can disappear before the next group
+      // starts without moving the work still waiting underneath the loop.
+      const cardsToCommit = [...splitCards]
+      total = cardsToCommit.length
+      for (let i = 0; i < cardsToCommit.length; i++) {
+        const card = cardsToCommit[i]
         const msg = card.message.trim()
         const chosen = card.files.filter((p) => card.pick[p] === true)
         if (chosen.length > 0 && msg) {
+          activeCard = card
           committingGroupId = card.id
           committingProgressText = t('git.committingGroup', { current: i + 1, total })
           const res = await GitCommitFiles(msg, chosen)
           if (res && res.outcome === 'committed') {
-            card.state = 'committed'
+            if (chosen.length === card.files.length) {
+              card.state = 'committed'
+            }
             noteCommitLanded()
-            landedAny = true
+            landedCount++
             if (res.warning) {
               warnings.push(res.warning)
             }
           }
+          await refresh()
         }
       }
-      if (landedAny) {
+      if (landedCount > 0) {
         if (warnings.length > 0) {
           alert = {
             type: 'success',
@@ -579,9 +591,17 @@
         setTimeout(() => { if (alert?.type === 'info') alert = null }, 4000)
       }
     } catch (err: any) {
+      const error = String(err?.message ?? err)
       alert = {
         type: 'err',
-        text: t('git.commitFailed', { error: String(err?.message ?? err) }),
+        text: landedCount > 0 && activeCard
+          ? t('git.commitPartialFailed', {
+              completed: landedCount,
+              total,
+              title: activeCard.title,
+              error,
+            })
+          : t('git.commitFailed', { error }),
         showAskAssistant: true,
       }
     } finally {

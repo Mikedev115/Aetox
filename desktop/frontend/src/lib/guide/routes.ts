@@ -17,7 +17,42 @@
 //      — the guide keeps no state at all — so the first stop is the one every
 //      person who asks to be shown around will see.
 
-export type GuideRouteId = 'first' | 'brain' | 'team'
+import { CATALOG_ROUTES } from './catalog/data'
+import { t } from '../i18n.svelte'
+
+export type GuideRouteId =
+  | 'first'
+  | 'brain'
+  | 'team'
+  | 'memory'
+  | 'capabilities'
+  | 'assistant_desk'
+  | 'code_desk'
+  | 'workbench_panel'
+  | 'code_map'
+  | 'connections'
+  | 'tools'
+  | 'artifacts'
+  | 'support'
+
+export type GuideDesk = 'assistant' | 'coding'
+
+/** The two desks share the same guide engine, not the same tours. Keeping the
+ * ownership here gives the opening deck, follow-up topics, and live desk
+ * switching one answer for whether a route belongs on the current desk. */
+const DESK_ROUTES: Record<GuideDesk, ReadonlySet<GuideRouteId>> = {
+  assistant: new Set<GuideRouteId>(['assistant_desk', 'workbench_panel']),
+  coding: new Set<GuideRouteId>(['code_desk', 'code_map']),
+}
+
+const DESK_SPECIFIC_ROUTES = new Set<GuideRouteId>([
+  ...DESK_ROUTES.assistant,
+  ...DESK_ROUTES.coding,
+])
+
+export function routeAllowedForDesk(routeId: GuideRouteId, desk: GuideDesk): boolean {
+  return !DESK_SPECIFIC_ROUTES.has(routeId) || DESK_ROUTES[desk].has(routeId)
+}
 
 export type GuideRoute = {
   id: GuideRouteId
@@ -25,43 +60,67 @@ export type GuideRoute = {
   stops: string[]
 }
 
-export const GUIDE_ROUTES: Record<GuideRouteId, GuideRoute> = {
-  first: {
-    id: 'first',
-    name: 'รอบแรก',
-    // The tour's order (docs/FIRST-RUN-TOUR.md), at the real buttons: the two
-    // heads, where you talk, the brake, the menu that opens settings, the
-    // model, the heads' page, memory, and the room that grows what it can do.
-    // Every stop is on the assistant door, where a new person lands.
-    stops: [
-      'topbar.door',
-      'composer.input',
-      'chat.send',
-      'sidebar.footer',
-      'settings.rail.brain',
-      'settings.rail.heads',
-      'settings.head.tab.memory',
-      'sidebar.desk.capability',
-    ],
-  },
-  brain: {
-    id: 'brain',
-    name: 'ต่อสมอง',
-    stops: [
-      'settings.rail.brain',
-      'settings.brain.hero',
-      'settings.brain.provider.ollama',
-      'settings.brain.add_provider',
-    ],
-  },
-  team: {
-    id: 'team',
-    name: 'ทีมและยศ',
-    stops: [
-      'settings.rail.heads',
-      'settings.head.hero',
-      'settings.head.rank',
-      'settings.head.tab.memory',
-    ],
-  },
+const DEFAULT_ROUTE_NAMES: Record<string, string> = {
+  first: 'รอบแรก',
+  brain: 'ต่อสมอง',
+  team: 'ตั้งทีมพนักงาน',
+  memory: 'ระบบเรียนรู้',
+  capabilities: 'ห้องความสามารถ',
+  assistant_desk: 'พาไกด์หน้าผู้ช่วย',
+  code_desk: 'พาไกด์หน้าโค้ด',
+  workbench_panel: 'พาดูแผงเครื่องมือ',
+  code_map: 'เปิดแผนที่โค้ด',
+  connections: 'เชื่อมโปรแกรมภายนอก',
+  tools: 'ตั้งค่าเครื่องมือ',
+  artifacts: 'ตามหาผลงานเก่า',
+  support: 'สนับสนุน Aetox',
+}
+
+export const GUIDE_ROUTES: Record<GuideRouteId, GuideRoute> = Object.fromEntries(
+  CATALOG_ROUTES.map((r) => [
+    r.id,
+    {
+      id: r.id as GuideRouteId,
+      name: t(r.nameKey as any) || DEFAULT_ROUTE_NAMES[r.id] || r.id,
+      stops: r.stops,
+    },
+  ])
+) as Record<GuideRouteId, GuideRoute>
+
+export type GuideRouteChoice = {
+  id: GuideRouteId
+  name: string
+  description: string
+  steps: number
+}
+
+/** Fixed tours the runtime can execute. Models may choose one; they never
+ * build its stops or carry navigation state themselves. */
+export function guideRouteChoices(): GuideRouteChoice[] {
+  return CATALOG_ROUTES.map((route) => ({
+    id: route.id as GuideRouteId,
+    name: t(route.nameKey as any) || DEFAULT_ROUTE_NAMES[route.id] || route.id,
+    description: t(route.descKey as any) || '',
+    steps: route.stops.length,
+  }))
+}
+
+/** Resolve the user's words to one prepared tour. Specific tours win over
+ * “show me around” when both ideas occur in the same request. */
+export function routeForIntent(raw: string): GuideRouteId | null {
+  const query = raw.trim().toLowerCase()
+  if (!query) return null
+  if (query in GUIDE_ROUTES) return query as GuideRouteId
+
+  const ordered = CATALOG_ROUTES.slice().sort((a, b) => {
+    if (a.id === 'first') return 1
+    if (b.id === 'first') return -1
+    return 0
+  })
+  for (const route of ordered) {
+    if (route.synonyms?.some((synonym) => query.includes(synonym.toLowerCase()))) {
+      return route.id as GuideRouteId
+    }
+  }
+  return null
 }

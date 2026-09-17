@@ -173,6 +173,10 @@ describe('the empty chat on screen', () => {
     const { container } = render(Chat, chatProps)
 
     await waitFor(() => {
+      // Empty and populated chats are the same guide place. Without this sign
+      // a route that returned from a full-screen room briefly believed it was
+      // nowhere and rewound to the account menu instead of continuing.
+      expect(container.querySelector('[data-guide-place="chat"]')).toBeTruthy()
       expect(screen.getByText(th['start.assistant.headline'])).toBeTruthy()
       const shown = [...container.querySelectorAll('.starter-card .title')].map((n) => n.textContent)
       expect(shown).toHaveLength(STARTER_SLOTS)

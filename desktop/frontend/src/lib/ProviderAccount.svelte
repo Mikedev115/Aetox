@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from './i18n.svelte'
   import Icon from './Icon.svelte'
+  import { TestProviderConnection, ProviderAccountFor } from '../../wailsjs/go/main/App'
 
   // One renderer for both places this appears — the provider card in Settings
   // and the profile menu — so the two can never disagree about what a number
@@ -11,11 +12,40 @@
   // sets it for the provider actually in use: that row has to say something,
   // because a name with nothing under it looks like a number that failed to
   // load rather than an account with no number to give.
-  let { account, compact = false, showBlank = false }:
-    { account: any; compact?: boolean; showBlank?: boolean } = $props()
+  let { account, compact = false, showBlank = false, onaccountchanged }:
+    { account: any; compact?: boolean; showBlank?: boolean; onaccountchanged?: (acc: any) => void } = $props()
 
-  const balance = $derived(account?.balance ?? null)
-  const quotas = $derived(account?.quotas ?? [])
+  let overrideAccount = $state<any>(null)
+  const currentAccount = $derived(overrideAccount ?? account)
+
+  const balance = $derived(currentAccount?.balance ?? null)
+  const quotas = $derived(currentAccount?.quotas ?? [])
+
+  let probing = $state(false)
+  let probeError = $state<string | null>(null)
+
+  async function checkQuotaNow() {
+    if (probing || !currentAccount?.provider) return
+    probing = true
+    probeError = null
+    try {
+      await TestProviderConnection(currentAccount.provider, '')
+    } catch (err: any) {
+      // Even if ping completion returns error (e.g. 429), NoteQuotas has overheard the headers
+      probeError = err?.message || String(err)
+    }
+    try {
+      const refreshed = await ProviderAccountFor(currentAccount.provider)
+      if (refreshed) {
+        overrideAccount = refreshed
+        onaccountchanged?.(refreshed)
+      }
+    } catch {
+      // ignore
+    } finally {
+      probing = false
+    }
+  }
 
   // Money is only ever shown when the provider actually sent a figure. A failed
   // fetch leaves hasAmount false, which is why the error text is a separate
@@ -82,13 +112,13 @@
            no wallet, a web-only account has one we cannot read, and an error is
            a provider that should have answered and did not. -->
       <div class="acct-plain acct-muted">
-        {#if account.error}
+        {#if currentAccount.error}
           {t('account.unreadable')}
         {:else if balance.kind === 'subscription'}
           <!-- Only when there is no window to show instead. A plan's number IS
                its quota, so "a subscription, not credit" beside a quota bar is
                a caption for something already on screen. -->
-          {#if !account.expectsQuota}{t('account.subscription')}{/if}
+          {#if !currentAccount.expectsQuota}{t('account.subscription')}{/if}
         {:else}
           {t('account.webOnly')}
         {/if}
@@ -133,8 +163,25 @@
          AND in the blank above, which printed it twice on the Codex card, and
          it guessed from the balance kind instead of asking whether this
          provider states a window at all. -->
-    {#if quotas.length === 0 && account.expectsQuota && !account.quotaKnown}
-      <div class="acct-plain acct-muted">{t('account.quotaNotYet')}</div>
+    {#if quotas.length === 0 && currentAccount.expectsQuota}
+      <div class="acct-plain acct-muted acct-quota-prompt">
+        <span>{probeError && !currentAccount.quotaKnown ? probeError : (currentAccount.quotaKnown ? t('account.noQuotaStated') : t('account.quotaNotYet'))}</span>
+        <button
+          type="button"
+          class="acct-check-btn"
+          disabled={probing}
+          onclick={checkQuotaNow}
+          title={t('account.checkQuotaTip')}
+        >
+          {#if probing}
+            <span class="acct-spinner"><Icon name="loaderCircle" size={11} /></span>
+            <span>{t('account.checkingQuota')}</span>
+          {:else}
+            <Icon name="refreshCw" size={11} />
+            <span>{t('account.checkQuotaNow')}</span>
+          {/if}
+        </button>
+      </div>
     {/if}
 
     {#if !compact}
@@ -143,10 +190,27 @@
              numbers came from: a header dialect overhears them on a turn that
              happened, while OpenRouter and OpenCode Go are asked outright and
              can answer before any turn exists. -->
-        <div class="acct-stamp">
-          {account.quotaFetched
-            ? t('account.quotaAsOf', { time: clock(quotas[0].observedAt) })
-            : t('account.fromLastTurn', { time: clock(quotas[0].observedAt) })}
+        <div class="acct-stamp-row">
+          <div class="acct-stamp">
+            {currentAccount.quotaFetched
+              ? t('account.quotaAsOf', { time: clock(quotas[0].observedAt) })
+              : t('account.fromLastTurn', { time: clock(quotas[0].observedAt) })}
+          </div>
+          {#if currentAccount.expectsQuota}
+            <button
+              type="button"
+              class="acct-refresh-link"
+              disabled={probing}
+              onclick={checkQuotaNow}
+              title={t('account.checkQuotaTip')}
+            >
+              {#if probing}
+                <span class="acct-spinner"><Icon name="loaderCircle" size={11} /></span>
+              {:else}
+                <Icon name="refreshCw" size={11} />
+              {/if}
+            </button>
+          {/if}
         </div>
       {/if}
       {#if hasMoney}
@@ -191,4 +255,39 @@
   .acct-fill.warn { background: var(--status-warn); }
   .acct-pct { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .acct-stamp { font-size: 11px; color: var(--text-dim); opacity: .75; }
+  .acct-quota-prompt { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .acct-check-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--text-primary);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .acct-check-btn:hover:not(:disabled) {
+    background: var(--surface-hover);
+    border-color: var(--border-default);
+  }
+  .acct-check-btn:disabled { opacity: 0.6; cursor: default; }
+  .acct-stamp-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .acct-refresh-link {
+    background: none;
+    border: none;
+    padding: 2px;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.7;
+    transition: opacity 0.15s, color 0.15s;
+  }
+  .acct-refresh-link:hover:not(:disabled) { opacity: 1; color: var(--text-primary); }
+  .acct-spinner { display: inline-flex; animation: acct-spin 1s linear infinite; }
+  @keyframes acct-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>

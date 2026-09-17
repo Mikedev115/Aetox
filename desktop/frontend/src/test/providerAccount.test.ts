@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/svelte'
+import { describe, it, expect, vi } from 'vitest'
+import { render, fireEvent } from '@testing-library/svelte'
 import ProviderAccount from '../lib/ProviderAccount.svelte'
+import { TestProviderConnection, ProviderAccountFor } from './mocks/wailsApp'
 
 const balance = (over: Record<string, unknown> = {}) => ({
   kind: 'money', hasAmount: true, amount: 12.4, currency: 'USD',
@@ -196,5 +197,87 @@ describe('provider account line', () => {
     expect(row?.getAttribute('title')).toContain('เหลือ 82%')
   })
 
+  it('offers a check button when quota is expected but unknown, and updates on click', async () => {
+    const codex = account({
+      provider: 'codex',
+      balance: balance({ kind: 'subscription', hasAmount: false }),
+      expectsQuota: true,
+      quotaKnown: false,
+      quotas: [],
+    })
+
+    const now = new Date().toISOString()
+    const refreshed = account({
+      provider: 'codex',
+      balance: balance({ kind: 'subscription', hasAmount: false }),
+      expectsQuota: true,
+      quotaKnown: true,
+      quotas: [{ window: '5h', remainingPercent: 95, resetAt: '', observedAt: now }],
+    })
+
+    vi.mocked(TestProviderConnection).mockResolvedValue('codex · 120ms' as any)
+    vi.mocked(ProviderAccountFor).mockResolvedValue(refreshed as any)
+
+    const onaccountchanged = vi.fn()
+    const { container } = render(ProviderAccount, { account: codex, onaccountchanged })
+
+    expect(container.textContent).toContain('ยังไม่รู้ลิมิต')
+    const btn = container.querySelector('.acct-check-btn') as HTMLButtonElement
+    expect(btn).toBeTruthy()
+    expect(btn.textContent).toContain('ตรวจเช็คตอนนี้')
+
+    await fireEvent.click(btn)
+
+    expect(TestProviderConnection).toHaveBeenCalledWith('codex', '')
+    expect(ProviderAccountFor).toHaveBeenCalledWith('codex')
+    expect(onaccountchanged).toHaveBeenCalledWith(refreshed)
+    expect(container.textContent).toContain('เหลือ 95%')
+  })
+
+  it('displays noQuotaStated when quota is known but provider reported no limits', async () => {
+    const codex = account({
+      provider: 'codex',
+      balance: balance({ kind: 'subscription', hasAmount: false }),
+      expectsQuota: true,
+      quotaKnown: false,
+      quotas: [],
+    })
+
+    const refreshedNoQuotas = account({
+      provider: 'codex',
+      balance: balance({ kind: 'subscription', hasAmount: false }),
+      expectsQuota: true,
+      quotaKnown: true,
+      quotas: [],
+    })
+
+    vi.mocked(TestProviderConnection).mockResolvedValue('codex · 120ms' as any)
+    vi.mocked(ProviderAccountFor).mockResolvedValue(refreshedNoQuotas as any)
+
+    const { container } = render(ProviderAccount, { account: codex })
+    const btn = container.querySelector('.acct-check-btn') as HTMLButtonElement
+    await fireEvent.click(btn)
+
+    expect(container.textContent).toContain('ผู้ให้บริการไม่ได้แจ้งลิมิตมา')
+  })
+
+  it('displays probe error if probe fails and quota remains unknown', async () => {
+    const codex = account({
+      provider: 'codex',
+      balance: balance({ kind: 'subscription', hasAmount: false }),
+      expectsQuota: true,
+      quotaKnown: false,
+      quotas: [],
+    })
+
+    vi.mocked(TestProviderConnection).mockRejectedValue(new Error('connection refused') as any)
+    vi.mocked(ProviderAccountFor).mockResolvedValue(codex as any)
+
+    const { container } = render(ProviderAccount, { account: codex })
+    const btn = container.querySelector('.acct-check-btn') as HTMLButtonElement
+    await fireEvent.click(btn)
+
+    expect(container.textContent).toContain('connection refused')
+  })
 })
 

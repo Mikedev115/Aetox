@@ -8,10 +8,10 @@ import type { CockpitSource } from '../services/cockpit'
 import { engine as engineStore, engineIsRemote } from './engine.svelte'
 import {
   SendMessage, GetProjectStatus, GetModelInfo, OpenProjectFolder, OpenProjectPath,
-  SwitchProvider, SwitchThinkLevel, SwitchApprovalMode, SetProviderWireFormat,
+  SwitchProvider, SwitchThinkLevel, SwitchServiceTier, SwitchApprovalMode, SetProviderWireFormat,
   SwitchModel, CancelPendingModel, SetAPIKey, SetProviderBaseURL, ProjectTree, ReadFile,
   BrowseFolder, BrowseFolderAt, BrowseRoot, StopBrowsing, SpaceFolderPath,
-  ListSessions, LoadSession, NewSession, NewSessionAt, DraftHandoff, ContinueInNewSession, NewChairSessionAt, NewTeamSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, SessionTeam, SessionPlan, SessionPlanReports, StartPlanRun, StopPlanRun, SavePlanText, PausePlanRun, ResumePlanRun, SetPlanStepStop, CurrentSessionID, SearchSessions, DeleteSession,
+  ListSessions, LoadSession, OpenSession, NewSession, NewSessionAt, DraftHandoff, ContinueInNewSession, NewChairSessionAt, NewTeamSession, NewSessionInSpace, CurrentSpace, SessionsInSpace, Spaces, SessionMode, SessionAgent, SessionTeam, SessionPlan, SessionPlanReports, StartPlanRun, StopPlanRun, SavePlanText, PausePlanRun, ResumePlanRun, SetPlanStepStop, CurrentSessionID, SearchSessions, DeleteSession,
   SessionTranscript, TurnInFlight,
   SaveChatImage, SaveChatImageData, SaveChatFile, ReadImageDataURL, CancelTurn, BrowserGetText, RecentProjects,
   ListSessionsForDoor, SearchSessionsForDoor, LoadSessionAnyProject, ClearProjectFocus, ForgetProject, HistoryFault,
@@ -29,6 +29,7 @@ import {
   ExportSession, ImportSession,
   Stance, Stances, SetStance,
   SessionSpend,
+  UpdateProjectMeta,
 } from '../../../wailsjs/go/main/App'
 import type { engine } from '../../../wailsjs/go/models'
 import { t } from '../i18n.svelte'
@@ -118,6 +119,7 @@ function applyModelInfo(info: engine.ModelInfo): void {
     provider: info.provider,
     modelName: info.modelName,
     thinkLevel: info.thinkLevel,
+    serviceTier: info.serviceTier ?? '',
     contextUsed: info.contextUsed,
     contextMax: info.contextMax,
     approval: info.approvalMode,
@@ -216,7 +218,7 @@ let browsingForSpace = ''
  * Refused by the engine while a real project is focused (the tree is showing
  * that project, and one root is the rule) — and the refusal is the right answer
  * there, so it is swallowed rather than shown. */
-export async function followSpaceFolder(): Promise<void> {
+export async function followSpaceFolder(): Promise<boolean> {
   const name = cockpit.space
   try {
     if (name) {
@@ -227,17 +229,18 @@ export async function followSpaceFolder(): Promise<void> {
       // one stat.
       const root = await BrowseFolderAt(await SpaceFolderPath(name))
       browsingForSpace = name
-      if (root === cockpit.browseRoot && cockpit.tree.length > 0) return
+      if (root === cockpit.browseRoot && cockpit.tree.length > 0) return false
     } else if (browsingForSpace) {
       await StopBrowsing()
       browsingForSpace = ''
     } else {
-      return
+      return false
     }
   } catch {
-    return // a project is focused, or the folder is gone: the tree keeps what it has
+    return false // a project is focused, or the folder is gone: the tree keeps what it has
   }
   await refreshWorkspace()
+  return true
 }
 
 /** "2 นาทีที่แล้ว" for an RFC3339 stamp. Exported because the browser tab's
@@ -371,6 +374,15 @@ async function historyFault(): Promise<StoreFault | null> {
  * Scoped in SQL rather than filtered here — see deskFilterFor for why the
  * difference matters once the history is longer than one page. */
 export async function refreshGlobalHistory(): Promise<void> {
+  // The workshop is project-first: its column is backed by ListSessions for
+  // the selected project, never by a walk over every project's conversations.
+  // Project cards come from RecentProjects, which is a lightweight metadata
+  // index. This is the performance boundary the UI promises.
+  if (shell.name === 'code') {
+    cockpit.history = []
+    cockpit.historyFault = null
+    return
+  }
   const [metas, current] = await Promise.all([
     ListSessionsForDoor(deskFilterFor(shell.name)), CurrentSessionID(),
   ])
@@ -411,6 +423,7 @@ export async function refreshSpaces(): Promise<void> {
 
 /** Full-text search this door's chat history across every project. */
 export async function searchGlobalHistory(query: string): Promise<void> {
+  if (shell.name === 'code') return searchSessions(query)
   if (!query.trim()) return refreshGlobalHistory()
   const [hits, current] = await Promise.all([
     SearchSessionsForDoor(query, deskFilterFor(shell.name)), CurrentSessionID(),
@@ -728,29 +741,250 @@ function hydrateImages(): void {
  * here aborts the function and stops, so a row whose session cannot be opened
  * behaves identically to a row that is not wired up. The engine had the answer
  * the whole time and the window threw it away. */
-export async function selectGlobalSession(session: Session): Promise<void> {
-  setActiveView('chat')
-  let messages: engine.SessionMessage[]
-  try {
-    messages = await LoadSessionAnyProject(session.id)
-  } catch (err) {
-    cockpit.sessionError = err instanceof Error ? err.message : String(err)
+type SessionSwitchScope = 'project' | 'global'
+
+interface SessionSwitchRequest {
+  session: Session
+  scope: SessionSwitchScope
+  ticket: number
+  waiters: Array<() => void>
+}
+
+// One engine cursor, therefore one session switch at a time. Before this
+// queue, three quick clicks started three LoadSession calls together; each
+// built an agent and each was allowed to put its own conversation on screen.
+// The latest click now replaces the one still waiting, while the call already
+// across the IPC boundary is allowed to finish and is ignored if it is stale.
+let sessionSwitchTicket = 0
+let activeSessionSwitch: SessionSwitchRequest | null = null
+let pendingSessionSwitch: SessionSwitchRequest | null = null
+let drainingSessionSwitches = false
+
+function settleSessionSwitch(req: SessionSwitchRequest): void {
+  for (const done of req.waiters.splice(0)) done()
+}
+
+function failedSessionSwitch(req: SessionSwitchRequest, err: unknown): void {
+  if (req.ticket !== sessionSwitchTicket) return
+  cockpit.openingSession = ''
+  cockpit.sessionError = err instanceof Error ? err.message : String(err)
+  // The optimistic mark names the target while it loads. A refusal leaves the
+  // conversation already on screen exactly where it was, so put its mark back.
+  markOnScreen(cockpit.openSession)
+}
+
+function applySessionOpenState(state: engine.SessionOpenState): void {
+  const current = state.currentId
+  Object.assign(cockpit.project, state.project)
+  applyModelInfo(state.model)
+  cockpit.desk = state.desk
+  cockpit.chair = state.agent
+  cockpit.team = state.team
+  cockpit.transport = state.transport ?? ''
+  cockpit.space = state.space
+  cockpit.stance = state.stance
+  cockpit.stances = state.stances ?? []
+  cockpit.undoFiles = state.undoFiles ?? []
+  cockpit.restorePoints = state.restorePoints ?? []
+  cockpit.projectFolders = state.projectFolders ?? []
+
+  cockpit.sessions = draftRow(current, (state.sessions ?? []).map((m) => ({
+    id: m.id, title: m.title, ago: agoLabel(m.updatedAt), updatedAt: m.updatedAt,
+    active: m.id === onScreenSession(current), mode: m.mode, agent: m.agent,
+    continuedFrom: m.continuedFrom,
+  })))
+  cockpit.history = draftRow(current, (state.history ?? []).map((m) => ({
+    id: m.id, title: m.title, ago: agoLabel(m.updatedAt), updatedAt: m.updatedAt,
+    active: m.id === onScreenSession(current), projectName: m.projectName,
+    mode: m.mode, agent: m.agent, continuedFrom: m.continuedFrom,
+  })), cockpit.project.name)
+  cockpit.historyFault = cockpit.history.length === 0 && state.historyFault?.failed
+    ? state.historyFault
+    : null
+  cockpit.spaceHistory = cockpit.space
+    ? draftRow(current, (state.spaceSessions ?? []).map((m) => ({
+        id: m.id, title: m.title, ago: agoLabel(m.updatedAt), updatedAt: m.updatedAt,
+        active: m.id === onScreenSession(current), mode: m.mode, agent: m.agent,
+        continuedFrom: m.continuedFrom,
+      })))
+    : []
+  cockpit.spaces = (state.spaces ?? []).map((s) => ({
+    name: s.name, chats: s.chats, updatedAt: s.updatedAt,
+  }))
+  cockpit.projects = (state.projects ?? []).map((p) => ({
+    key: p.key, name: p.name, folder: p.folder, description: p.description,
+    path: p.rootPath, ago: agoLabel(p.openedAt), sessions: p.sessions,
+    active: p.rootPath === state.project.path, snippet: p.snippet,
+  }))
+  setShell(shellForDesk(state.desk))
+}
+
+async function refreshOpenedSession(req: SessionSwitchRequest): Promise<void> {
+  // The engine-owned state arrived with OpenSession. What remains lives in the
+  // window (workbench snapshots) or follows the project folder the window is
+  // displaying. These two are independent and no longer sit behind a ladder of
+  // model/history/undo IPC calls.
+  const [, treeRefreshed] = await Promise.all([
+    switchWorkbenchSession(req.session.id), followSpaceFolder(),
+  ])
+  // A cross-project switch changes the focused root even when there is no space
+  // folder for followSpaceFolder to point at. In that case read the new tree;
+  // when followSpaceFolder already did so, do not pay for it twice.
+  if (req.scope === 'global' && !treeRefreshed) await refreshWorkspace()
+}
+
+// During `wails dev` the frontend hot-reloads immediately while the Go screen
+// and its engine can still be the build from before OpenSession was added. A
+// generated JS binding then exists, but the live backend answers "unknown
+// method" (or exposes no function at all). A history row must keep working
+// during that rolling upgrade: fall back only for a missing API, never for a
+// real refusal such as a moved project or deleted session.
+function openSessionUnavailable(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err)
+  return /OpenSession/i.test(message)
+    && /(unknown|not found|not a function|undefined|does not exist)/i.test(message)
+}
+
+async function refreshOpenedSessionLegacy(req: SessionSwitchRequest): Promise<void> {
+  // This is deliberately a compatibility door, not the normal path. It uses
+  // only bindings older screens already expose, while keeping independent
+  // reads parallel so a stale dev backend is usable rather than painfully
+  // serial. The next backend restart returns to the one-snapshot path above.
+  await refreshDesk()
+  // A backend old enough to need this compatibility path predates external
+  // transport sessions. Do not let the badge from the chat we left follow us.
+  cockpit.transport = ''
+  await switchWorkbenchSession(req.session.id)
+  if (req.scope === 'global') {
+    const project = await GetProjectStatus()
+    Object.assign(cockpit.project, project)
+    await Promise.all([
+      refreshWorkspace(), refreshProjectFolders(), refreshUndo(),
+      refreshSessions(), refreshProjects(), refreshGlobalHistory(),
+    ])
     return
   }
-  if (!arriveAt(session.id)) {
-    cockpit.chat = restoreTranscript(messages)
+  await Promise.all([refreshUndo(), refreshSessions(), refreshGlobalHistory()])
+}
+
+async function openQueuedSession(req: SessionSwitchRequest): Promise<void> {
+  let opened: engine.SessionOpenState | null = null
+  let legacyMessages: engine.SessionMessage[] | null = null
+  try {
+    const targetShell = typeof req.session.mode === 'string'
+      ? shellForDesk(req.session.mode)
+      : shell.name
+    opened = await OpenSession(
+      req.session.id, deskFilterFor(targetShell), req.scope === 'global',
+    )
+  } catch (err) {
+    if (!openSessionUnavailable(err)) {
+      failedSessionSwitch(req, err)
+      return
+    }
+    try {
+      legacyMessages = await (req.scope === 'global'
+        ? LoadSessionAnyProject(req.session.id)
+        : LoadSession(req.session.id))
+    } catch (legacyErr) {
+      failedSessionSwitch(req, legacyErr)
+      return
+    }
+  }
+
+  // Another click arrived while the engine was loading this chat. Do not let
+  // the older response flash on screen or run its long refresh tail; the drain
+  // loop below will take the newest target next.
+  if (req.ticket !== sessionSwitchTicket) return
+
+  if (req.scope === 'project') resetBackgroundWork()
+  // LoadSession has now moved the engine cursor to the requested chat. Clear
+  // the gate before arriveAt restores any queued interjection: that restore is
+  // allowed to start the chat's next turn immediately, and it now belongs to
+  // this (new) cursor rather than the conversation we just left.
+  cockpit.openingSession = ''
+  if (!arriveAt(req.session.id)) {
+    cockpit.chat = restoreTranscript(opened?.messages ?? legacyMessages ?? [])
     hydrateImages()
   }
-  await refreshDesk()
-  await switchWorkbenchSession(session.id)
-  const project = await GetProjectStatus()
-  Object.assign(cockpit.project, project)
-  await refreshWorkspace()
-  await refreshProjectFolders()
-  await refreshUndo()
-  await refreshSessions()
-  await refreshProjects()
-  await refreshGlobalHistory()
+  if (opened) applySessionOpenState(opened)
+
+  try {
+    if (opened) await refreshOpenedSession(req)
+    else await refreshOpenedSessionLegacy(req)
+  } catch (err) {
+    // Loading the transcript succeeded. A workbench tab or a secondary list
+    // failing afterwards must not turn that success into an unhandled click.
+    if (req.ticket === sessionSwitchTicket) {
+      cockpit.sessionError = err instanceof Error ? err.message : String(err)
+    }
+  }
+}
+
+async function drainSessionSwitches(): Promise<void> {
+  if (drainingSessionSwitches) return
+  drainingSessionSwitches = true
+  try {
+    while (pendingSessionSwitch) {
+      const req = pendingSessionSwitch
+      pendingSessionSwitch = null
+      activeSessionSwitch = req
+      await openQueuedSession(req)
+      settleSessionSwitch(req)
+      activeSessionSwitch = null
+    }
+  } finally {
+    activeSessionSwitch = null
+    drainingSessionSwitches = false
+  }
+}
+
+function queueSessionSwitch(session: Session, scope: SessionSwitchScope, force = false): Promise<void> {
+  setActiveView('chat')
+  if (!session.id) return Promise.resolve()
+
+  // Clicking the chat already on screen is navigation back to the chat view,
+  // not a reason to rebuild its agent and repaint the same transcript.
+  if (!force && !activeSessionSwitch && !pendingSessionSwitch && session.id === cockpit.openSession) {
+    cockpit.sessionError = ''
+    markOnScreen(session.id)
+    return Promise.resolve()
+  }
+
+  cockpit.sessionError = ''
+  cockpit.openingSession = session.id
+  markOnScreen(session.id)
+
+  return new Promise<void>((resolve) => {
+    const same = (req: SessionSwitchRequest | null) =>
+      req?.session.id === session.id && req.scope === scope
+
+    // The latest click came back to the request already running. Its result is
+    // useful again: cancel the waiting target and let this call commit instead
+    // of throwing it away and loading the same chat twice.
+    if (same(activeSessionSwitch)) {
+      sessionSwitchTicket++
+      activeSessionSwitch!.ticket = sessionSwitchTicket
+      activeSessionSwitch!.waiters.push(resolve)
+      if (pendingSessionSwitch) settleSessionSwitch(pendingSessionSwitch)
+      pendingSessionSwitch = null
+      return
+    }
+    if (same(pendingSessionSwitch)) {
+      pendingSessionSwitch!.waiters.push(resolve)
+      return
+    }
+
+    if (pendingSessionSwitch) settleSessionSwitch(pendingSessionSwitch)
+    pendingSessionSwitch = {
+      session, scope, ticket: ++sessionSwitchTicket, waiters: [resolve],
+    }
+    void drainSessionSwitches()
+  })
+}
+
+export function selectGlobalSession(session: Session): Promise<void> {
+  return queueSessionSwitch(session, 'global')
 }
 
 /** Pull the folders added to the focused project.
@@ -790,9 +1024,24 @@ export async function removeProjectFolder(path: string): Promise<void> {
 export async function refreshProjects(): Promise<void> {
   const [metas, current] = await Promise.all([RecentProjects(), GetProjectStatus()])
   cockpit.projects = metas.map((m) => ({
-    key: m.key, name: m.name, path: m.rootPath, ago: agoLabel(m.openedAt),
+    key: m.key, name: m.name, folder: m.folder, description: m.description,
+    path: m.rootPath, ago: agoLabel(m.openedAt), sessions: m.sessions,
     active: m.rootPath === current.path, snippet: m.snippet,
   }))
+}
+
+/** Save only the card metadata; the real folder path and its sessions stay put. */
+export async function saveProjectMeta(path: string, name: string, description: string): Promise<void> {
+  const updated = await UpdateProjectMeta(path, name, description)
+  const at = cockpit.projects.findIndex((p) => p.key === updated.key)
+  const row = {
+    key: updated.key, name: updated.name, folder: updated.folder,
+    description: updated.description, path: updated.rootPath,
+    ago: agoLabel(updated.openedAt), sessions: updated.sessions,
+    active: updated.rootPath === cockpit.project.path, snippet: updated.snippet,
+  }
+  if (at >= 0) cockpit.projects[at] = row
+  else cockpit.projects.unshift(row)
 }
 
 /** Pull the real project/model state the Go engine is actually running with.
@@ -1467,6 +1716,10 @@ export async function switchThinkLevel(level: string): Promise<void> {
   applyModelInfo(await SwitchThinkLevel(level))
 }
 
+export async function switchServiceTier(tier: string): Promise<void> {
+  applyModelInfo(await SwitchServiceTier(tier))
+}
+
 export async function switchApprovalMode(mode: string): Promise<void> {
   applyModelInfo(await SwitchApprovalMode(mode))
 }
@@ -1851,6 +2104,10 @@ async function storedEndingFor(sentText: string, turn: LiveTurnRef): Promise<Cha
 // name chosen off a menu are the same characters and different acts — and only
 // this side of the wire knows which one happened (subagent.Mention).
 export async function sendUserMessage(text: string, alreadyShown = false, to = ''): Promise<void> {
+  // The UI keeps the previous session mounted until LoadSession resolves so a
+  // slow switch never flashes an empty shell. It must not, however, accept a
+  // message for that previous engine cursor while the next session is opening.
+  if (cockpit.openingSession) return
   const trimmed = text.trim()
   const images = cockpit.pendingImages
   const contexts = cockpit.pendingContexts
@@ -3980,6 +4237,7 @@ function arriveAt(id: string): boolean {
   // conversation wrote. Clearing it before the arrival is what makes the gap
   // read as "nothing offered" instead of as somebody else's work.
   cockpit.undoFiles = []
+  cockpit.handoff = null
   // The plan is the chat's (desktop/plan.go), and it is DROPPED here rather than
   // parked for the reason the undo chip above is: the engine still has it, in a
   // row keyed by session id, so `SessionPlan` can be asked again and the answer
@@ -4003,6 +4261,10 @@ function arriveAt(id: string): boolean {
   // tail is: a second tail is a second thing to forget, and forgetting the tail
   // is the bug. Every door passes through this function.
   cockpit.stance = ''
+  // The channel badge is another fixed session coordinate. Drop it at the
+  // same boundary so even a parked live turn cannot lend Telegram/Discord to
+  // the chat being entered; OpenSession restores the arriving value below.
+  cockpit.transport = ''
   void refreshStance(id)
   // The wording Tab types belongs to the chat whose question it answers, and
   // until 2026-09-08 it rode across every switch: leave a chat that had just
@@ -4092,28 +4354,8 @@ export async function confirmHandoff(): Promise<void> {
 }
 
 /** Switch to a stored session — the transcript loads back and the agent's memory is restored. */
-export async function selectSession(session: Session): Promise<void> {
-  const messages = await LoadSession(session.id)
-  // Background work is the session's (§105). Reset before the arrival so the
-  // rows the tray is showing belong to the chat about to be on screen.
-  resetBackgroundWork()
-  // A chat that was working when it left comes back mid-flight — timeline,
-  // half-written answer and all — and its messages are the live ones, which
-  // are ahead of anything the store can hand back.
-  if (!arriveAt(session.id)) {
-    cockpit.chat = restoreTranscript(messages)
-    hydrateImages()
-  }
-  // Opening a session takes the engine back to the desk it was held at, so the
-  // nav has to follow it rather than keep pointing at where the user was.
-  await refreshDesk()
-  await switchWorkbenchSession(session.id)
-  // Whose undo is on offer changed with the chat — asked here for the same
-  // reason selectGlobalSession asks it, and missing here was the whole bug: the
-  // door most people actually use is this one.
-  await refreshUndo()
-  await refreshSessions()
-  await refreshGlobalHistory()
+export async function selectSession(session: Session, force = false): Promise<void> {
+  await queueSessionSwitch(session, 'project', force)
 }
 
 /** Record what the user thought of one reply.
@@ -4179,7 +4421,7 @@ function showSessionRefusal(err: unknown): void {
   cockpit.sessionError = err instanceof Error ? err.message : String(err)
 }
 
-/** "New chat" — the + button, Ctrl+N, and the palette's row.
+/** "New chat" — the pencil button, Ctrl+N, and the palette's row.
  *
  * It lands on the main desk of the door you are standing at: ผู้ช่วย from the
  * storefront, โต๊ะโค้ด from the workshop. It does NOT keep the room you were
@@ -4195,27 +4437,18 @@ function showSessionRefusal(err: unknown): void {
  * boundary a keystroke has no business crossing: mid-task in the workshop,
  * Ctrl+N must not put you in the storefront.
  *
- * A โปรเจกต์ is NOT a room, and is kept (owner, 13 ก.ย.: *"ตอนอยู่โหมดโปรเจค
- * ... ตอนกดเริ่มเซสชั่นใหม่มันโดดไปหน้าแรกแทนที่จะจำได้ว่าอยู่ในโหมดโปรเจคอยู่"*).
- * Until then this went through newSessionAt, which drops the project the way
- * the engine's startNewSession does, and pressing + inside a project landed on
- * the storefront's blank page with the project's chats gone from the sidebar.
- * The rule above is about specialists' rooms: a chair is a person you were
- * talking to and "new chat" means someone else. A project is where the work
- * is filed, and a new chat about the same work belongs in the same folder —
- * which is also what the rail's own "+" on the project row does. Leaving the
- * project is a click on its name or on ผู้ช่วย, not a side effect of Ctrl+N.
- * Only at the assistant's desk, because that is the only desk a project chat
- * runs at (newSpaceSession). */
+ * Projects now have their own permanent section and their folder row is the
+ * explicit door for starting work there. The equally permanent pencil under
+ * "Chats" therefore always means a general chat. Keeping the project here made
+ * that button look like the way out while quietly creating another project
+ * session instead — the user could enter a project but could not leave it.
+ * One visible control now has one meaning, and clicking the folder remains the
+ * visible way to start another chat in that project. */
 export async function newSession(): Promise<void> {
   // Before the session call, like openDesk: a refusal is reported inside the
   // chat, so a user who pressed this from Settings has to be looking at it.
   setActiveView('chat')
   const desk = deskForShell(shell.name)
-  if (cockpit.space && desk === 'assistant') {
-    await newSpaceSession(cockpit.space)
-    return
-  }
   await newSessionAt(desk)
 }
 
@@ -4417,6 +4650,9 @@ async function afterNewSession(): Promise<void> {
   // a chat while another worked wiped the working one's live state — the exact
   // bug the parking exists to prevent, coming in through a different door.
   arriveAt(id)
+  // Every UI-created chat is local. External sessions are born only in the
+  // Telegram/Discord bridge and recover their value through OpenSession.
+  cockpit.transport = ''
   cockpit.chat = []
   // Explicit switch (not adopt): a brand-new session starts with an empty
   // workbench; the old session's layout stays saved for when it's reopened.

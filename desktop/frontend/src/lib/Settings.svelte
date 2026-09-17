@@ -67,7 +67,7 @@
     DelegateSwitches, SetDelegateOff, SetAgentOff,
     PlacementTargets, SetMCPServerTargets,
     ListSpeechModels, SetSpeechModel, SpeechStatus, RevealSpeechModel, SpeechModelDirs, OpenSpeechModelDir,
-    ListSpeechEngines, SetSpeechEngine, ListTTSEngines, SetTTSEngine, ListTTSVoices, SetTTSVoice, TTSStatus, SpeakText,
+    ListSpeechEngines, SetSpeechEngine, ListTTSEngines, SetTTSEngine, ListTTSVoices, RefreshTTSVoices, SetTTSVoice, TTSStatus, SpeakText,
     ListImageEngines, SetImageEngine, SetImageModelName, ImageStatus,
     SetSpeechModelName, SetTTSModelName,
     InstallVoiceEngine,
@@ -488,6 +488,13 @@
 
   async function refreshAccount() {
     busy = 'account'
+    if (selected && !account?.quotaFetched && account?.expectsQuota) {
+      try {
+        await TestProviderConnection(selected, '')
+      } catch {
+        // ignore probe error; NoteQuotas overhears headers
+      }
+    }
     await loadAccount(selected)
     busy = ''
   }
@@ -1414,12 +1421,26 @@
   let ttsVoicesList = $state<TtsVoiceRow[]>([])
   let ttsStatus = $state('') // TTS engine's own reason it cannot run; '' means ready
   let voicePageBusy = $state(false)
+  let voicePageLoaded = $state(false)
   let voicePageError = $state('')
   let ttsPreviewing = $state(false)
   let ttsPreviewAudio: HTMLAudioElement | null = null
 
   const activeSttEngine = $derived(sttEngines.find((e) => e.active))
   const activeTtsEngine = $derived(ttsEngines.find((e) => e.active))
+  // Native <option> elements cannot carry a styled badge consistently on
+  // Windows, so the recommendation is part of the option label. It remains
+  // visible both while the menu is open and after the value is selected.
+  function voiceEngineOption(side: 'stt' | 'tts', eng: EngineRow): string {
+    const recommended = (side === 'stt' && eng.id === 'groq') || (side === 'tts' && eng.id === 'edge')
+    return recommended ? `${eng.label} · ${t('onboard.recommended')}` : eng.label
+  }
+  const hasUILanguageVoice = $derived(
+    ttsVoicesList.some((voice) => (voice.lang ?? '').toLowerCase().startsWith(i18n.locale.toLowerCase())),
+  )
+  const needsWindowsVoice = $derived(
+    voicePageLoaded && activeTtsEngine?.id === 'windows' && !ttsStatus && !hasUILanguageVoice,
+  )
 
   // The five selects on this card read their own state rather than the row
   // lists, and syncVoicePicks re-asserts it after every call. A one-way value={derived} cannot correct a pick that did not
@@ -1449,6 +1470,7 @@
   }
 
   async function loadVoicePage() {
+    voicePageLoaded = false
     // Hardware first and separately: a webview that cannot enumerate devices
     // is no reason for the engine pickers below to stay empty.
     try {
@@ -1473,6 +1495,21 @@
       }
     } finally {
       await syncVoicePicks()
+      voicePageLoaded = true
+    }
+  }
+
+  async function refreshInstalledVoices() {
+    voicePageBusy = true
+    voicePageError = ''
+    try {
+      ttsVoicesList = await RefreshTTSVoices()
+      ttsStatus = await TTSStatus()
+      await syncVoicePicks()
+    } catch (err) {
+      voicePageError = String(err)
+    } finally {
+      voicePageBusy = false
     }
   }
 
@@ -2799,7 +2836,7 @@
   // AGENT_FORCED_DENIALS mirrors subagent.forcedDenials: names a sub-agent never
   // gets no matter what the file says. Listing them as available would be a lie
   // the user only discovers after saving.
-  const AGENT_FORCED_DENIALS = ['task', 'task_result', 'task_answer', 'task_plan', 'help', 'ask_user', 'todo_write']
+  const AGENT_FORCED_DENIALS = ['task', 'task_result', 'task_answer', 'task_message', 'task_plan', 'help', 'ask_user', 'todo_write']
   // Mirrors subagent.stepsUnlimitedKeyword. The frontmatter carries a word
   // rather than a sentinel number because the file is hand-editable.
   const STEPS_UNLIMITED = 'unlimited'
@@ -6186,7 +6223,13 @@
               <!-- Closing the add form here, on the click, and not inside
                    selectProvider: the boot also selects a row, and a form
                    opened while the page was still loading must survive it. -->
-              {#if p.name === 'ollama'}
+              {#if p.name === 'codex'}
+                <button data-guide="settings.brain.provider.codex" class="mset-prov" class:selected={selected === p.name} onclick={() => { customDraftOpen = false; selectProvider(p.name) }}>
+                  <ProviderMark name={p.name} size={15} />
+                  <span class="mset-prov-name">{p.name}</span>
+                  <span class="dot" class:green={p.ready === true} class:unknown={p.ready === null} title={p.ready === null ? t('settings.providerChecking') : p.ready ? t('settings.providerReady') : t('settings.providerNotReady')}></span>
+                </button>
+              {:else if p.name === 'ollama'}
                 <button data-guide="settings.brain.provider.ollama" class="mset-prov" class:selected={selected === p.name} onclick={() => { customDraftOpen = false; selectProvider(p.name) }}>
                   <ProviderMark name={p.name} size={15} />
                   <span class="mset-prov-name">{p.name}</span>
@@ -6343,8 +6386,8 @@
 
             {#if account}
               <div class="mset-acct">
-                <ProviderAccount {account} />
-                {#if account.balance?.hasAmount || account.quotaFetched}
+                <ProviderAccount {account} onaccountchanged={(fresh) => { accounts[selected] = fresh; accounts = { ...accounts } }} />
+                {#if account.balance?.hasAmount || account.quotaFetched || account.expectsQuota}
                   <button class="ctrl tiny" disabled={busy === 'account'} onclick={refreshAccount}>
                     <Icon name="refreshCw" size={13} /> {t('settings.refreshBalance')}
                   </button>
@@ -6635,7 +6678,7 @@
             {@render voiceInstall('stt', activeSttEngine, speechStatus)}
           </div>
           <select data-guide="settings.voice.switch" class="ctrl" disabled={voicePageBusy} value={sttPick} onchange={(e) => pickSttEngine(e.currentTarget.value)}>
-            {#each sttEngines as eng (eng.id)}<option value={eng.id}>{eng.label}</option>{/each}
+            {#each sttEngines as eng (eng.id)}<option value={eng.id}>{voiceEngineOption('stt', eng)}</option>{/each}
           </select>
         </div>
         <!-- Hidden for a vendor that stores its own weights by name
@@ -6737,7 +6780,7 @@
             {@render voiceInstall('tts', activeTtsEngine, ttsStatus)}
           </div>
           <select class="ctrl" disabled={voicePageBusy} value={ttsPick} onchange={(e) => pickTtsEngine(e.currentTarget.value)}>
-            {#each ttsEngines as eng (eng.id)}<option value={eng.id}>{eng.label}</option>{/each}
+            {#each ttsEngines as eng (eng.id)}<option value={eng.id}>{voiceEngineOption('tts', eng)}</option>{/each}
           </select>
         </div>
         <!-- Same rule as the STT side: only vendors with a real choice of
@@ -6768,6 +6811,20 @@
             {#each ttsVoicesList as v (v.id)}<option value={v.id}>{v.name}{v.lang ? ` (${v.lang})` : ''}</option>{/each}
           </select>
         </div>
+        {#if needsWindowsVoice}
+          <div class="set-row voice-missing-row" role="status">
+            <div class="set-txt">
+              <div class="t">{t('settings.voiceMissingLanguage', { language: localeNames[i18n.locale] ?? i18n.locale })}</div>
+              <div class="d">{t('settings.voiceMissingLanguageDesc')}</div>
+            </div>
+            <button class="ctrl ctrl-primary" onclick={() => BrowserOpenURL('ms-settings:speech')}>
+              {t('settings.voiceInstallWindows')}
+            </button>
+            <button class="ctrl" disabled={voicePageBusy} onclick={refreshInstalledVoices}>
+              {t('settings.voiceRecheck')}
+            </button>
+          </div>
+        {/if}
         <!-- Last on this card for the same reason the mic is first: read
              top to bottom, each card is the signal's own path. -->
         <div class="set-row">
@@ -7447,7 +7504,7 @@
 
         <!-- ความจำ: this head's file, the projects it hosts, its queue and
              its history — moved whole from การเรียนรู้. -->
-        <div class="ag-tab-panel" class:on={mainTab === 'memory'}>
+        <div class="ag-tab-panel" class:on={mainTab === 'memory'} data-guide="settings.head.memory_panel">
           {#if headPending(h).length > 0}
             <h3 class="set-h3">{t('settings.learningPending')}</h3>
             <p class="muted set-sub">{t('settings.learningPendingHint')}</p>
@@ -8090,7 +8147,7 @@
           </div>
           <div style="display:flex;gap:6px">
             <button class="ctrl" data-guide="settings.about.guide_btn" title={t('account.guideTip')}
-                    onclick={() => { onClose(); guide.start() }}>{t('account.guide')}</button>
+                    onclick={() => guide.start()}>{t('account.guide')}</button>
             <button data-guide="settings.about.tour_btn" class="ctrl" onclick={() => { openTour(); onClose() }}>{t('settings.tourAction')}</button>
           </div>
         </div>
@@ -8223,7 +8280,7 @@
             <div class="d">{t('settings.followDesc')}</div>
           </div>
           <div class="follow-row">
-            <button class="ctrl" onclick={() => BrowserOpenURL(COMMUNITY_URL)}>
+            <button class="ctrl" data-guide="settings.about.community_btn" onclick={() => BrowserOpenURL(COMMUNITY_URL)}>
               <Icon name="facebook" size={14} /> {t('settings.followGroup')}
             </button>
             <button class="ctrl" onclick={() => BrowserOpenURL(PAGE_URL)}>

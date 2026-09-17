@@ -121,6 +121,15 @@ describe('one shelf, not two', () => {
     for (const p of MCP_PRESETS.filter((x) => x.oauth)) expect(presetFor(p.name)).toBeUndefined()
     expect(presetFor('firecrawl')?.name).toBe('firecrawl')
   })
+  it('offers the verified ai-quota release as a one-click local MCP server', async () => {
+    const quota = presetFor('ai-quota')!
+    expect(quota.proven).toBe(true)
+    expect(quota.toolCount).toBe(1)
+    const cfg = await presetConfig(quota)
+    expect(cfg.command).toEqual(['npx', '-y', '@metyatech/ai-quota@1.2.5', '--mcp'])
+    expect(cfg.headers).toEqual({})
+    expect(cfg.environment).toEqual({})
+  })
   // The bracketed placeholder used to live INSIDE `why` and was printed to the
   // user. Now it is a field, and an unproven entry has no `why` at all.
   it('says in a field, not in prose, which entries nobody has tried', () => {
@@ -380,6 +389,9 @@ describe('ห้องสมุดสกิล', () => {
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('ห้องสมุดสกิล')
     const mp = card('mattpocock/skills')
     expect(within(mp).getByText(/มีอยู่แล้ว 1 จาก/)).toBeTruthy()
+    expect(card('replicate/skills')).toBeTruthy()
+    expect(card('prisma/skills')).toBeTruthy()
+    expect(card('dodopayments/skills')).toBeTruthy()
     await fireEvent.click(within(mp).getByRole('button', { name: /เพิ่มทั้งชุด/ }))
     await waitFor(() => expect(vi.mocked(InstallSkillFromGitHub)).toHaveBeenCalledWith('https://github.com/mattpocock/skills'))
     expect(screen.getByText('ติดตั้งจาก URL หรือ zip')).toBeTruthy()
@@ -877,10 +889,15 @@ describe('the sheet, the one form', () => {
     expect(SaveMCPServer).not.toHaveBeenCalled()
   })
 
-  it('adds a new server from the section button, with nothing written until saved', async () => {
+  it('takes Add server to the library first, then keeps manual address as the fallback', async () => {
     await open([server({ name: 'exa' })])
     await fireEvent.click(screen.getByText('เพิ่มเซิร์ฟเวอร์', { selector: '.sec-head button' }))
+    expect(activePage()).toBe('ห้องสมุด MCP')
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    await fireEvent.click(screen.getByText('เพิ่มเองด้วยที่อยู่'))
     const dlg = await screen.findByRole('dialog')
+    expect(dlg.querySelector('[data-guide="capability.mcp.manual_form"]')).not.toBeNull()
     expect(SaveMCPServer).not.toHaveBeenCalled()
     expect(within(dlg).getByRole('tab', { name: 'การเชื่อมต่อ' }).getAttribute('aria-selected')).toBe('true')
     expect(within(dlg).getAllByRole('tab').map((x) => x.textContent?.trim())).toEqual(['การเชื่อมต่อ', 'เครื่องมือ'])

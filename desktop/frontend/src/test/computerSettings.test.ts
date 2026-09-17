@@ -15,7 +15,7 @@ import { cockpit } from '../lib/stores/cockpit.svelte'
 //
 // The first is what the page IS. The direction doc (§4.2) warns that reading it
 // as a list of applications produces a dead register: rows are REACHES, and a
-// row exists because a mechanism reaches it. So the three rows with no mechanism
+// row exists because a mechanism reaches it. So the two browser rows with no mechanism
 // behind them have to stay on screen saying why, rather than being hidden until
 // they work. connections.go carries the same rule in a long comment, learned
 // twice the hard way.
@@ -81,10 +81,9 @@ describe('the computer-use page', () => {
     await waitFor(() => expect(container.textContent).toContain('Google Chrome'))
     // A row that vanishes in its broken state is a dead end, not a tidy UI.
     expect(container.textContent).toContain('Microsoft Edge')
-    expect(container.textContent).toContain('Microsoft Excel')
+    expect(container.textContent).not.toContain('Microsoft Excel')
     // And each says WHY, rather than being greyed out with no reason.
     expect(container.textContent).toContain('ส่วนขยายเบราว์เซอร์')
-    expect(container.textContent).toContain('สเปรดชีต')
   })
 
   it('turns the reach on through the binding rather than optimistically', async () => {
@@ -105,8 +104,8 @@ describe('the computer-use page', () => {
   it('lets the user pick a program from the windows that are open', async () => {
     vi.mocked(ComputerControlOn).mockResolvedValue(true)
     vi.mocked(OpenComputerApps).mockResolvedValue([
-      { name: 'notepad', title: 'บันทึกย่อ', allowed: false, blocked: '', warn: '', icon: '' },
-      { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '', icon: '' },
+      { id: 'C:\\Windows\\notepad.exe', name: 'notepad', title: 'บันทึกย่อ', allowed: false, blocked: '', warn: '', icon: '' },
+      { id: 'C:\\Program Files\\Google\\Chrome\\chrome.exe', name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '', icon: '' },
     ] as any)
 
     const { container } = render(Capability, { onClose: () => {} })
@@ -116,13 +115,13 @@ describe('the computer-use page', () => {
     // an agent is parked on the reply.
     await waitFor(() => expect(container.textContent).toContain('notepad'))
     await fireEvent.click(screen.getByText('อนุญาต'))
-    await waitFor(() => expect(vi.mocked(AllowComputerApp)).toHaveBeenCalledWith('notepad'))
+    await waitFor(() => expect(vi.mocked(AllowComputerApp)).toHaveBeenCalledWith('C:\\Windows\\notepad.exe'))
   })
 
   it('shows a browser in the list and says which tool does it instead', async () => {
     vi.mocked(ComputerControlOn).mockResolvedValue(true)
     vi.mocked(OpenComputerApps).mockResolvedValue([
-      { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '', icon: '' },
+      { id: 'C:\\Program Files\\Google\\Chrome\\chrome.exe', name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '', icon: '' },
     ] as any)
 
     const { container } = render(Capability, { onClose: () => {} })
@@ -154,7 +153,7 @@ describe('the computer-use page', () => {
   it('puts each program own icon on its row', async () => {
     vi.mocked(ComputerControlOn).mockResolvedValue(true)
     vi.mocked(OpenComputerApps).mockResolvedValue([
-      { name: 'notepad', title: 'บันทึกย่อ', allowed: false, blocked: '', warn: '', icon: 'data:image/png;base64,AAA' },
+      { id: 'C:\\Windows\\notepad.exe', name: 'notepad', title: 'บันทึกย่อ', allowed: false, blocked: '', warn: '', icon: 'data:image/png;base64,AAA' },
     ] as any)
 
     const { container } = render(Capability, { onClose: () => {} })
@@ -171,7 +170,7 @@ describe('the computer-use page', () => {
   it('keeps the row aligned when a program has no icon to give', async () => {
     vi.mocked(ComputerControlOn).mockResolvedValue(true)
     vi.mocked(OpenComputerApps).mockResolvedValue([
-      { name: 'oldapp', title: 'โปรแกรมเก่า', allowed: false, blocked: '', warn: '', icon: '' },
+      { id: 'C:\\Old\\oldapp.exe', name: 'oldapp', title: 'โปรแกรมเก่า', allowed: false, blocked: '', warn: '', icon: '' },
     ] as any)
 
     const { container } = render(Capability, { onClose: () => {} })
@@ -199,7 +198,7 @@ describe('the computer-use page', () => {
   it('does not call a browser row "not available yet"', async () => {
     vi.mocked(ComputerControlOn).mockResolvedValue(true)
     vi.mocked(OpenComputerApps).mockResolvedValue([
-      { name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '', icon: '' },
+      { id: 'C:\\Program Files\\Google\\Chrome\\chrome.exe', name: 'chrome', title: 'หน้าเว็บ', allowed: false, blocked: 'browser', warn: '', icon: '' },
     ] as any)
 
     const { container } = render(Capability, { onClose: () => {} })
@@ -213,7 +212,7 @@ describe('the computer-use page', () => {
   it('offers nothing to pick while the switch is off', async () => {
     vi.mocked(GrantedComputerApps).mockResolvedValue(['notepad'])
     vi.mocked(OpenComputerApps).mockResolvedValue([
-      { name: 'notepad', title: 'บันทึกย่อ', allowed: true, blocked: '', warn: '', icon: '' },
+      { id: 'C:\\Windows\\notepad.exe', name: 'notepad', title: 'บันทึกย่อ', allowed: true, blocked: '', warn: '', icon: '' },
     ] as any)
     const { container } = render(Capability, { onClose: () => {} })
     await openSection(container, 'โปรแกรมที่ให้ควบคุม')

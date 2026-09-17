@@ -12,9 +12,12 @@
 // grouped: a "วันนี้" header printed three times down one list would be
 // claiming an order the results do not have.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/svelte'
+import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import Sidebar from '../lib/Sidebar.svelte'
-import { SessionMode, CurrentSessionID, LoadSessionAnyProject, OpenProjectPath } from './mocks/wailsApp'
+import {
+  SessionMode, CurrentSessionID, LoadSession, LoadSessionAnyProject,
+  OpenProjectPath, OpenSession,
+} from './mocks/wailsApp'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { setShell } from '../lib/shell.svelte'
 import type { Session } from '../lib/types'
@@ -39,10 +42,19 @@ const dayHeads = (): string[] =>
 
 beforeEach(() => {
   vi.clearAllMocks()
+  localStorage.removeItem('chatsPinned')
   cockpit.desk = ''
   cockpit.activeView = 'chat'
   cockpit.history = []
+  cockpit.sessions = []
+  cockpit.spaces = []
+  cockpit.space = ''
+  cockpit.spaceHistory = []
   cockpit.historyFault = null
+  cockpit.openSession = ''
+  cockpit.openingSession = ''
+  cockpit.sessionError = ''
+  Object.assign(cockpit.project, { focused: false, name: '', path: '', branch: '' })
   setShell('assistant')
   vi.mocked(CurrentSessionID).mockResolvedValue('20260805-120000.000')
   vi.mocked(SessionMode).mockResolvedValue('')
@@ -97,17 +109,16 @@ describe('the chat list', () => {
     expect(field?.getAttribute('placeholder')).toBe('ค้นหาประวัติ…')
   })
 
-  // The chunky dashed block that used to sit above this list is an icon on the
-  // same row now, and that row serves the project column too — one copy, not
-  // one per list. Import sits beside it: bringing a chat in is the column's
-  // own action, same as starting one.
-  it('keeps the column actions as icons, not blocks above the list', () => {
+  // Search is global; creation belongs to the section it affects. This keeps a
+  // project folder and a general new chat as two explicit doors.
+  it('puts project and chat actions on their own stable headings', () => {
     render(Sidebar, { onOpenSettings: () => {} })
 
     expect(screen.queryByText('เริ่มเซสชันใหม่')).toBeNull()
-    const labels = Array.from(document.querySelectorAll('.side-actions button'))
+    expect(document.querySelectorAll('.side-actions button')).toHaveLength(0)
+    const labels = Array.from(document.querySelectorAll('.rail-section-actions button'))
       .map((b) => b.getAttribute('aria-label'))
-    expect(labels).toEqual(['นำเข้าแชทที่ส่งออกไว้ (.json)', 'เริ่มเซสชันใหม่'])
+    expect(labels).toEqual(['สร้างโปรเจกต์', 'เมนูโปรเจกต์', 'เริ่มเซสชันใหม่', 'เมนูแชท'])
   })
 
   // The row's whole job. Every other way into a session switched the view to
@@ -153,9 +164,30 @@ describe('the chat list', () => {
     const row = document.querySelector('.sess-row')
     expect(row?.querySelector('.sess-line')?.textContent?.trim()).toBe('ค้นไฟล์ทั้งเครื่องแล้วสรุปให้ที')
     expect(row?.querySelector('.sess-meta')?.textContent).toContain('ผู้ช่วย')
-    // The hover controls live on the meta line, in space nothing else wants.
-    expect(row?.querySelector('.sess-meta .sess-acts .sess-del')).toBeTruthy()
+    // The overflow menu lives on the meta line, in space nothing else wants.
+    expect(row?.querySelector('.sess-meta .sess-acts .row-more')).toBeTruthy()
   })
+
+  it('keeps assistant session actions inside one overflow menu', async () => {
+    cockpit.history.push(chat('assistant-chat', 'งานในหน้าผู้ช่วย', daysAgo(0, 9)))
+    const { container } = render(Sidebar, { onOpenSettings: () => {} })
+
+    expect(container.querySelector('.sess-row .sess-pin')).toBeNull()
+    expect(container.querySelector('.sess-row .sess-exp')).toBeNull()
+    expect(container.querySelector('.sess-row .sess-del')).toBeNull()
+    const trigger = container.querySelector('.sess-row .row-more') as HTMLElement
+    const scroll = trigger.closest('.scroll') as HTMLElement
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({ top: 400, bottom: 424 } as DOMRect)
+    vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue({ top: 100, bottom: 450 } as DOMRect)
+    await fireEvent.click(trigger)
+
+    expect(screen.getByText('ปักหมุดแชทนี้')).toBeTruthy()
+    expect(screen.getByText('Markdown')).toBeTruthy()
+    expect(screen.getByText('JSON')).toBeTruthy()
+    expect(screen.getByText('ลบแชท')).toBeTruthy()
+    expect(container.querySelector('.sess-row-menu')?.classList.contains('up')).toBe(true)
+  })
+
 })
 
 // Starting work in a project, from the project's own row.
@@ -166,31 +198,39 @@ describe('the chat list', () => {
 // gesture that reads as navigation (owner, 16 ส.ค., pointing at the row:
 // "เนี้ยมันไม่มี").
 describe('the project rows in the workshop column', () => {
-  it('offers a new chat on each project, and opens that project when pressed', async () => {
+  it('starts with lightweight project cards and opens only the chosen project', async () => {
     setShell('code')
     cockpit.projects = [
-      { key: 'a', name: 'frontend', path: 'D:/work/frontend', active: false },
-      { key: 'b', name: 'senior-architect-agent', path: 'D:/work/agent', active: true },
+      { key: 'a', name: 'frontend', folder: 'frontend', description: 'หน้าร้าน', sessions: 4, path: 'D:/work/frontend', active: false },
+      { key: 'b', name: 'senior-architect-agent', folder: 'agent', description: '', sessions: 2, path: 'D:/work/agent', active: false },
     ] as any
-    vi.mocked(OpenProjectPath).mockResolvedValue({ focused: true, name: 'frontend' } as any)
+    vi.mocked(OpenProjectPath).mockResolvedValue({ focused: true, name: 'frontend', path: 'D:/work/frontend' } as any)
 
     const { container } = render(Sidebar, { onOpenSettings: () => {} })
 
-    const adds = Array.from(container.querySelectorAll('.proj-group-new'))
-    expect(adds.length).toBe(2)
-    // Named, because it is an icon: the row has two other buttons on it and a
-    // bare + is only obvious to whoever put it there.
-    expect(adds[0].getAttribute('aria-label')).toBe('แชทใหม่ในโปรเจกต์นี้')
-    // And the tooltip has to open leftward: the button is against the column's
-    // right edge, which is where the panel clips, so a centred one is cut in
-    // half (owner, 16 ส.ค., holding a screenshot of exactly that).
-    expect(adds[0].classList.contains('tip-r')).toBe(true)
+    expect(screen.getByText('เลือกโปรเจกต์')).toBeTruthy()
+    expect(container.querySelectorAll('.project-card').length).toBe(2)
+    expect(container.querySelector('.project-session-row')).toBeNull()
 
-    await fireEvent.click(adds[0])
+    await fireEvent.click(container.querySelectorAll('.project-card-open')[0])
     expect(vi.mocked(OpenProjectPath)).toHaveBeenCalledWith('D:/work/frontend')
-    // And it lands in the chat it just made, rather than leaving the user on
-    // whatever page the click was pressed from.
     expect(cockpit.activeView).toBe('chat')
+  })
+
+  it('offers description editing immediately and leaves an empty project compact', async () => {
+    setShell('code')
+    cockpit.projects = [
+      { key: 'a', name: 'Aetox', folder: 'Aetox', description: '', sessions: 3, path: 'D:/Aetox', active: false },
+    ] as any
+
+    const { container } = render(Sidebar, { onOpenSettings: () => {} })
+
+    expect(container.querySelector('.project-card-description')).toBeNull()
+    expect(screen.queryByText('เพิ่มคำอธิบายว่าโปรเจกต์นี้ทำอะไร')).toBeNull()
+    const add = container.querySelector('.project-card-edit-button') as HTMLButtonElement
+    expect(add.title).toBe('เพิ่มคำอธิบายว่าโปรเจกต์นี้ทำอะไร')
+    await fireEvent.click(add)
+    expect(container.querySelector('.project-card-edit textarea')).toBeTruthy()
   })
 
   it('is not in the storefront column, which focuses no project at all', () => {
@@ -199,7 +239,88 @@ describe('the project rows in the workshop column', () => {
 
     const { container } = render(Sidebar, { onOpenSettings: () => {} })
 
-    expect(container.querySelector('.proj-group-new')).toBeNull()
+    expect(container.querySelector('.project-switcher')).toBeNull()
+  })
+
+  it('opens a nested project session through the queued session door', async () => {
+    setShell('code')
+    Object.assign(cockpit.project, { focused: true, name: 'Aetox', path: 'D:/Aetox', branch: 'main' })
+    cockpit.projects = [
+      { key: 'a', name: 'Aetox', folder: 'Aetox', description: '', sessions: 2, path: 'D:/Aetox', active: true },
+    ] as any
+    cockpit.sessions = [
+      { ...chat('draft', 'แชทใหม่', daysAgo(0, 9)), active: true, mode: 'coding' },
+      { ...chat('older', 'เซสชันที่ต้องเปิด', daysAgo(0, 8)), mode: 'coding' },
+    ]
+    cockpit.openSession = 'draft'
+    vi.mocked(SessionMode).mockResolvedValue('coding')
+    vi.mocked(LoadSession).mockResolvedValue([
+      { role: 'agent', text: 'กลับมาแล้ว', time: '10:00' },
+    ] as never)
+
+    render(Sidebar, { onOpenSettings: () => {} })
+    await fireEvent.click(screen.getByText('เซสชันที่ต้องเปิด'))
+
+    await waitFor(() => expect(OpenSession).toHaveBeenCalled())
+    expect(vi.mocked(OpenSession).mock.calls[0][0]).toBe('older')
+    expect(vi.mocked(OpenSession).mock.calls[0][2]).toBe(false)
+    expect(LoadSession).toHaveBeenCalledWith('older')
+  })
+
+  it('pins a project session to the top and remembers the pin', async () => {
+    setShell('code')
+    Object.assign(cockpit.project, { focused: true, name: 'Aetox', path: 'D:/Aetox', branch: 'main' })
+    cockpit.projects = [
+      { key: 'a', name: 'Aetox', folder: 'Aetox', description: '', sessions: 2, path: 'D:/Aetox', active: true },
+    ] as any
+    cockpit.sessions = [
+      { ...chat('newer', 'งานล่าสุด', daysAgo(0, 9)), mode: 'coding' },
+      { ...chat('keeper', 'งานที่ต้องปักหมุด', daysAgo(2, 9)), mode: 'coding' },
+    ]
+
+    render(Sidebar, { onOpenSettings: () => {} })
+    await fireEvent.click(screen.getAllByLabelText('เพิ่มเติม')[1])
+    await fireEvent.click(screen.getByText('ปักหมุดแชทนี้'))
+
+    await waitFor(() => {
+      const titles = Array.from(document.querySelectorAll('.project-session-title')).map((node) => node.textContent)
+      expect(titles).toEqual(['งานที่ต้องปักหมุด', 'งานล่าสุด'])
+      expect(JSON.parse(localStorage.getItem('chatsPinned') ?? '{}')).toEqual({ keeper: true })
+    })
+    await fireEvent.click(screen.getAllByLabelText('เพิ่มเติม')[0])
+    expect(screen.getByText('เอาหมุดออก')).toBeTruthy()
+    expect(screen.getByText('Markdown')).toBeTruthy()
+    expect(screen.getByText('JSON')).toBeTruthy()
+  })
+
+  it('shows the reason in the project sidebar when a session cannot open', async () => {
+    setShell('code')
+    Object.assign(cockpit.project, { focused: true, name: 'Aetox', path: 'D:/Aetox', branch: 'main' })
+    cockpit.projects = [
+      { key: 'a', name: 'Aetox', folder: 'Aetox', description: '', sessions: 1, path: 'D:/Aetox', active: true },
+    ] as any
+    cockpit.sessions = [{ ...chat('gone', 'เปิดไม่ได้', daysAgo(0, 8)), mode: 'coding' }]
+    vi.mocked(OpenSession).mockRejectedValueOnce(new Error('ไม่พบเซสชันนี้'))
+
+    render(Sidebar, { onOpenSettings: () => {} })
+    await fireEvent.click(screen.getByText('เปิดไม่ได้'))
+
+    expect((await screen.findByRole('alert')).textContent).toContain('ไม่พบเซสชันนี้')
+  })
+
+  it('opens the project menu inside a raised card instead of clipping it', async () => {
+    setShell('code')
+    cockpit.projects = [
+      { key: 'a', name: 'index', folder: 'index', description: '', sessions: 0, path: 'D:/index', active: false },
+    ] as any
+
+    const { container } = render(Sidebar, { onOpenSettings: () => {} })
+    await fireEvent.click(screen.getByText('โปรเจกต์ทั้งหมด'))
+    await fireEvent.click(container.querySelector('.project-card-menu-button') as HTMLButtonElement)
+
+    const card = container.querySelector('.project-card')
+    expect(card?.classList.contains('menu-open')).toBe(true)
+    expect(card?.querySelector('.project-card-menu .plus-menu-item')?.textContent).toContain('เอาออกจากรายการ')
   })
 })
 
@@ -219,18 +340,19 @@ describe('the working ring on a workshop project chat', () => {
 
   it('rings the chat the turn is running in, and no other', () => {
     setShell('code')
+    Object.assign(cockpit.project, { focused: true, name: 'senior-architect-agent', path: 'D:/work/agent', branch: 'main' })
     cockpit.projects = [
-      { key: 'b', name: 'senior-architect-agent', path: 'D:/work/agent', active: true },
+      { key: 'b', name: 'senior-architect-agent', folder: 'agent', description: '', sessions: 2, path: 'D:/work/agent', active: true },
     ] as any
-    cockpit.history.push(
-      { ...chat('s1', 'ลองแก้ไฟล์ให้ผมหน่อย', daysAgo(0, 9)), projectName: 'senior-architect-agent' },
-      { ...chat('s2', 'เทสครับแก้ไฟล์แล้ว', daysAgo(0, 10)), projectName: 'senior-architect-agent' },
+    cockpit.sessions.push(
+      { ...chat('s1', 'ลองแก้ไฟล์ให้ผมหน่อย', daysAgo(0, 9)) },
+      { ...chat('s2', 'เทสครับแก้ไฟล์แล้ว', daysAgo(0, 10)) },
     )
     cockpit.turnSession = 's1'
 
     const { container } = render(Sidebar, { onOpenSettings: () => {} })
 
-    const rows = Array.from(container.querySelectorAll('.proj-group-sess'))
+    const rows = Array.from(container.querySelectorAll('.project-session-row'))
     expect(rows.length).toBe(2)
     expect(rows[0].classList.contains('working')).toBe(true)
     expect(rows[1].classList.contains('working')).toBe(false)
@@ -238,11 +360,12 @@ describe('the working ring on a workshop project chat', () => {
 
   it('rings a chat left working in the background, which is the whole point', () => {
     setShell('code')
+    Object.assign(cockpit.project, { focused: true, name: 'senior-architect-agent', path: 'D:/work/agent', branch: 'main' })
     cockpit.projects = [
-      { key: 'b', name: 'senior-architect-agent', path: 'D:/work/agent', active: true },
+      { key: 'b', name: 'senior-architect-agent', folder: 'agent', description: '', sessions: 1, path: 'D:/work/agent', active: true },
     ] as any
-    cockpit.history.push(
-      { ...chat('s1', 'งานยาว', daysAgo(0, 9)), projectName: 'senior-architect-agent' },
+    cockpit.sessions.push(
+      { ...chat('s1', 'งานยาว', daysAgo(0, 9)) },
     )
     // Parked: the user switched away while the turn was still going, so it is
     // no longer the engine's session and only its own record says it is alive.
@@ -250,7 +373,7 @@ describe('the working ring on a workshop project chat', () => {
 
     const { container } = render(Sidebar, { onOpenSettings: () => {} })
 
-    expect(container.querySelector('.proj-group-sess')?.classList.contains('working')).toBe(true)
+    expect(container.querySelector('.project-session-row')?.classList.contains('working')).toBe(true)
   })
 })
 

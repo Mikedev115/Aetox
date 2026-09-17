@@ -271,7 +271,7 @@
        that only moves you somewhere else competes with the one thing this
        header is for. -->
   <div class="team-doors">
-    <button class="ctrl ctrl-primary team-new" onclick={() => newTeam(side)} disabled={!!editing?.isNew}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
+    <button class="ctrl ctrl-primary team-new" data-guide="team.new_btn" onclick={() => newTeam(side)} disabled={!!editing?.isNew}><Icon name="plus" size={14} /> {t('office.newTeam')}</button>
   </div>
 </div>
 {#if error}<div class="mset-error">{error}</div>{/if}
@@ -350,10 +350,10 @@
       <div class="mset-field">
         <div class="eyebrow">{t('office.teamPick')} <span class="team-picked">{editing.members.length}</span></div>
         <div class="muted set-hint">{t('office.teamPickHint')}</div>
-        <div class="conn-targets" data-guide="team.lead_select">
+        <div class="conn-targets">
           {#each chairs as c (c.name)}
             {@const on = editing.members.includes(c.name)}
-            <button type="button" class="conn-chip agent" class:on aria-pressed={on}
+            <button type="button" class="conn-chip agent" data-guide="team.lead_select" class:on aria-pressed={on}
               title={c.description} onclick={() => tickMember(c.name, !on)}>
               <AgentMascot name={c.name} {...lookOf(c)} size={16} />
               {c.name}

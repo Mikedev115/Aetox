@@ -51,4 +51,16 @@ describe('a file the editor cannot render', () => {
     expect(tab.content).toBe('# notes\n')
     expect(tab.unreadable).toBeUndefined()
   })
+
+  it('removes a directory-shaped file tab and opens the file tree', async () => {
+    ReadFile.mockRejectedValueOnce(new Error('"backend/tests" is a directory'))
+
+    await openFileTab('backend/tests')
+
+    expect(workbench.tabs.some((tab) => tab.id === 'file-backend/tests')).toBe(false)
+    expect(workbench.tabs).toEqual([
+      expect.objectContaining({ id: 'files', kind: 'files' }),
+    ])
+    expect(workbench.activeId).toBe('files')
+  })
 })

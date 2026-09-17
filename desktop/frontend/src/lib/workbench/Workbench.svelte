@@ -497,8 +497,8 @@
   <button class="plus-menu-item" data-guide="topbar.tab.terminal" disabled={shells.length === 0} onclick={openDefaultTerminal}><span class="ic"><Icon name="keyboard" size={14} /></span> {t('workbench.terminalMenu')}</button>
   <button class="plus-menu-item" data-guide="topbar.tab.browser" onclick={() => pick(openBrowserTab)}><span class="ic"><Icon name="globe" size={14} /></span> {t('workbench.browserMenu')} <span class="kbd">{shortcutLabel('browserTab')}</span></button>
   <button class="plus-menu-item" data-guide="topbar.tab.editor" onclick={() => pick(openFilesTab)}><span class="ic"><Icon name="copy" size={14} /></span> {t('workbench.filesTab')} <span class="kbd">{shortcutLabel('filesTab')}</span></button>
-  <button class="plus-menu-item" onclick={() => pick(openDecksTab)}><span class="ic"><Icon name="layoutList" size={14} /></span> {t('workbench.decksTab')}</button>
-  <button class="plus-menu-item" onclick={() => pick(openArtifactsTab)}><span class="ic"><Icon name="package" size={14} /></span> {t('workbench.artifactsTab')}</button>
+  <button class="plus-menu-item" data-guide="topbar.tab.decks" onclick={() => pick(openDecksTab)}><span class="ic"><Icon name="layoutList" size={14} /></span> {t('workbench.decksTab')}</button>
+  <button class="plus-menu-item" data-guide="topbar.tab.artifacts" onclick={() => pick(openArtifactsTab)}><span class="ic"><Icon name="package" size={14} /></span> {t('workbench.artifactsTab')}</button>
   {#if cockpit.plan}
     <button class="plus-menu-item" onclick={() => pick(openPlanTab)}><span class="ic"><Icon name="compass" size={14} /></span> {t('chat.planCard')}</button>
   {/if}
@@ -511,15 +511,15 @@
         <span class="menu-badge git" title="{codeStatus.gitChangedCount} changed files">{codeStatus.gitChangedCount}</span>
       {/if}
     </button>
-    <button class="plus-menu-item" onclick={() => pick(openGitLogTab)}><span class="ic"><Icon name="clock" size={14} /></span> <span>{t('workbench.gitLogTab')}</span></button>
-    <button class="plus-menu-item" onclick={() => pick(openPRTab)}>
+    <button class="plus-menu-item" data-guide="topbar.tab.git_log" onclick={() => pick(openGitLogTab)}><span class="ic"><Icon name="clock" size={14} /></span> <span>{t('workbench.gitLogTab')}</span></button>
+    <button class="plus-menu-item" data-guide="topbar.tab.pr" onclick={() => pick(openPRTab)}>
       <span class="ic"><Icon name="gitPullRequest" size={14} /></span>
       <span>{t('workbench.prTab')}</span>
       {#if codeStatus.openPRCount > 0}
         <span class="menu-badge pr" title="{codeStatus.openPRCount} open PRs">{codeStatus.openPRCount}</span>
       {/if}
     </button>
-    <button class="plus-menu-item" onclick={() => pick(openRepoMapTab)}><span class="ic"><Icon name="graph" size={14} /></span> <span>{t('workbench.repoMapTab')}</span></button>
+    <button class="plus-menu-item" data-guide="workbench.repo_map" onclick={() => pick(openRepoMapTab)}><span class="ic"><Icon name="graph" size={14} /></span> <span>{t('workbench.repoMapTab')}</span></button>
   {/if}
   <!-- Same gate the code group draws with, one coordinate over: the room is
        the editor's, so its row exists where that chair is sat (§85). The
@@ -575,7 +575,7 @@
       {/each}
     </div>
     <div class="plus-menu-wrap">
-      <button class="icobtn tiny plus-btn" aria-label={t('workbench.addTab')} data-tip={t('workbench.addTab')} onclick={() => (menuOpen = !menuOpen)}>
+      <button data-guide="workbench.add_tab" class="icobtn tiny plus-btn" aria-label={t('workbench.addTab')} data-tip={t('workbench.addTab')} onclick={() => (menuOpen = !menuOpen)}>
         <Icon name="plus" size={14} />
         {#if (codeStatus.gitChangedCount > 0 || codeStatus.openPRCount > 0) && !workbench.tabs.some((t) => t.kind === 'git' || t.kind === 'pr')}
           <span class="plus-notice-dot" aria-hidden="true"></span>

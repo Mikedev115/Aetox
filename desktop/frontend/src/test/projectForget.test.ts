@@ -13,7 +13,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte'
 import Sidebar from '../lib/Sidebar.svelte'
-import { ForgetProject, DeleteSpace, CurrentSessionID, SessionMode } from './mocks/wailsApp'
+import { ForgetProject, DeleteSpace, CurrentSessionID, SessionMode, UpdateProjectMeta } from './mocks/wailsApp'
 import { cockpit } from '../lib/stores/cockpit.svelte'
 import { setShell } from '../lib/shell.svelte'
 import { setLocale } from '../lib/i18n.svelte'
@@ -22,7 +22,8 @@ const project = { key: 'k-downloads', name: 'Downloads', path: 'C:\\Users\\phrms
 const space = { name: 'เปิดร้านกาแฟ', chats: 2, updatedAt: new Date().toISOString() }
 
 const moreButton = () => screen.getByLabelText('More')
-const openMenu = async () => {
+const openMenu = async (projectFirst = true) => {
+  if (projectFirst) await fireEvent.click(screen.getByText('All projects'))
   await fireEvent.click(moreButton())
 }
 
@@ -42,18 +43,38 @@ beforeEach(() => {
 })
 
 describe('a project row in the workshop', () => {
-  it('keeps its actions behind one button until asked', () => {
+  it('keeps management actions off the recent-project picker', () => {
     render(Sidebar, { onOpenSettings: () => {} })
-    expect(moreButton()).toBeTruthy()
+    expect(screen.queryByLabelText('More')).toBeNull()
     expect(screen.queryByText('Remove from the list')).toBeNull()
-    expect(screen.queryByText('Pin to the top')).toBeNull()
   })
 
-  it('offers pin and the way off the list, in that order', async () => {
+  it('offers editing and the way off from the all-projects view', async () => {
     render(Sidebar, { onOpenSettings: () => {} })
-    await openMenu()
-    expect(screen.getByText('Pin to the top')).toBeTruthy()
+    await fireEvent.click(screen.getByText('All projects'))
+    expect(screen.getByLabelText('Edit name and description')).toBeTruthy()
+    await fireEvent.click(moreButton())
     expect(screen.getByText('Remove from the list')).toBeTruthy()
+  })
+
+  it('saves a display name and description without changing the folder path', async () => {
+    vi.mocked(UpdateProjectMeta).mockResolvedValueOnce({
+      key: project.key, name: 'Client portal', folder: 'Downloads',
+      description: 'Checkout redesign', rootPath: project.path,
+      openedAt: '', sessions: 0, snippet: '',
+    })
+    render(Sidebar, { onOpenSettings: () => {} })
+    await fireEvent.click(screen.getByText('All projects'))
+    await fireEvent.click(screen.getByLabelText('Edit name and description'))
+    await fireEvent.input(screen.getByLabelText('Display name'), { target: { value: 'Client portal' } })
+    await fireEvent.input(screen.getByLabelText('Project description'), { target: { value: 'Checkout redesign' } })
+    await fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(UpdateProjectMeta).toHaveBeenCalledWith(
+      project.path, 'Client portal', 'Checkout redesign',
+    ))
+    expect(cockpit.projects[0]?.path).toBe(project.path)
+    expect(cockpit.projects[0]?.name).toBe('Client portal')
   })
 
   it('asks once before it removes anything', async () => {
@@ -76,7 +97,7 @@ describe('a โปรเจกต์ row at the storefront', () => {
 
   it('carries the same three dots', async () => {
     render(Sidebar, { onOpenSettings: () => {} })
-    await openMenu()
+    await openMenu(false)
     expect(screen.getByText('Pin to the top')).toBeTruthy()
     expect(screen.getByText('Delete project')).toBeTruthy()
   })
@@ -85,7 +106,7 @@ describe('a โปรเจกต์ row at the storefront', () => {
   // must not take it.
   it('asks through the dialog before deleting the folder', async () => {
     render(Sidebar, { onOpenSettings: () => {} })
-    await openMenu()
+    await openMenu(false)
     await fireEvent.click(screen.getByText('Delete project'))
     expect(DeleteSpace).not.toHaveBeenCalled()
     expect(screen.getByText('Delete this project?')).toBeTruthy()
