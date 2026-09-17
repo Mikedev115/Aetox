@@ -186,6 +186,9 @@ if (-not (Test-Path -LiteralPath $lastMessage)) {
     Set-Content -LiteralPath $lastMessage -Value $execution.Stdout -Encoding UTF8
 }
 
+# Intent-to-add makes new source files appear in the ordinary Git diff without
+# staging their contents. Generated Python caches are ignored by the fixture.
+& $git -C $workspace add -N -- .
 (& $git -C $workspace diff --binary HEAD) | Set-Content -LiteralPath (Join-Path $runRoot "changes.patch") -Encoding UTF8
 $changedFiles = @(& $git -C $workspace diff --name-only HEAD)
 $changedFiles | Set-Content -LiteralPath (Join-Path $runRoot "changed-files.txt") -Encoding UTF8
@@ -230,6 +233,12 @@ $result = [ordered]@{
     harness_exit_code = $execution.ExitCode
     scorer_exit_code = $score.ExitCode
     hidden_tests = $hidden
+    aetox_report = if (Test-Path -LiteralPath $reportPath) {
+        $reportLine = Get-Content -LiteralPath $reportPath | Select-Object -Last 1
+        if ($reportLine) { $reportLine | ConvertFrom-Json } else { $null }
+    } else {
+        $null
+    }
     changed_files = $changedFiles
     longest_line = $longestLine
     lines_by_file = $lineCounts
