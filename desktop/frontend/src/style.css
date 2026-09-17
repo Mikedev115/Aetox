@@ -1265,11 +1265,13 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
 }
 .starter-card .ic { font-size:var(--fs-2xl); }
 .starter-card .title { color:var(--text-secondary); font-size:var(--fs-lg); line-height:1.4; transition:color var(--dur-tint) ease; }
-/* A reply uses the whole reading column — user and agent already sit on their
-   own rows, so a narrow bubble buys nothing and squeezes tables/code. Only the
-   user's own line stays capped, so it still reads as a right-hand bubble. */
+/* Both speakers occupy at most four fifths of the reading column, so the side
+   they speak from remains visible even on a long line. The agent keeps no
+   620px ceiling: tables and code may use the full 80%, while the user's short
+   bubble retains its older pixel cap. */
 .msg { display:flex; max-width:100%; min-width:0; }
 .msg > .bubble { min-width:0; flex:1; }
+.msg.bot { align-self:flex-start; max-width:80%; }
 /* A rule between turns was built here and taken out again the same day (owner,
    25 ส.ค., pointing at it: "ก่อนถึงแชทของผู้ใช้ไม่ต้องแสดง"). Worth a line
    because the reasoning was sound and the answer was still no: a seam earns its
@@ -1280,17 +1282,9 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    .msg.user keeps the cap on the row, which is what it always had — the row was
    only ever widened so a full-width rule could reach the edge. */
 .msg.user { align-self:flex-end; max-width:min(80%, 620px); }
-/* The answer's prose expands across the reading column. */
-.msg:not(.user) .bubble .markdown-body > p,
-.msg:not(.user) .bubble .markdown-body > ul,
-.msg:not(.user) .bubble .markdown-body > ol,
-.msg:not(.user) .bubble .markdown-body > blockquote,
-.msg:not(.user) .bubble .markdown-body > h1,
-.msg:not(.user) .bubble .markdown-body > h2,
-.msg:not(.user) .bubble .markdown-body > h3,
-.msg:not(.user) .bubble .markdown-body > h4,
-.msg:not(.user) .bubble .markdown-body > h5,
-.msg:not(.user) .bubble .markdown-body > h6 { max-width:100%; }
+/* The assistant row is the one width boundary. Do not add a second prose cap
+   inside it: 80% on .msg.bot followed by 60ch here made ordinary text much
+   narrower than code and made the requested speaker width look broken. */
 .msg.user > .bubble { flex:0 1 auto; }
 .bubble { border-radius:var(--r-lg); padding:11px 14px; min-width:0; overflow-wrap:break-word; word-break:break-word; }
 .msg.user .bubble { background:var(--surface-raised); border:1px solid var(--border-default); border-top-right-radius:4px; }
