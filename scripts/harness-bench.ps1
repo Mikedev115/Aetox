@@ -112,6 +112,7 @@ if ($Harness -eq "aetox") {
     if ($build.ExitCode -ne 0) {
         throw "building Aetox failed with exit $($build.ExitCode)"
     }
+    $aetoxVersion = (& $aetox --version | Select-Object -First 1)
 
     $temporaryDataRoot = Join-Path ([IO.Path]::GetTempPath()) ("aetox-harness-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $temporaryDataRoot -Force | Out-Null
@@ -147,6 +148,7 @@ if ($Harness -eq "aetox") {
 } else {
     $command = $codex
     $arguments = @(
+        "--ask-for-approval", "never",
         "exec",
         "--ephemeral",
         "--ignore-user-config",
@@ -154,7 +156,6 @@ if ($Harness -eq "aetox") {
         "--model", "gpt-5.6-luna",
         "-c", 'model_reasoning_effort="low"',
         "--sandbox", "workspace-write",
-        "--ask-for-approval", "never",
         "--cd", $workspace,
         "--skip-git-repo-check",
         "--color", "never",
