@@ -2077,6 +2077,19 @@
     stick.onScroll()
   }
 
+  // A send changes both sides of the flex column in one flush: the new bubble
+  // grows the transcript while clearing a multi-line draft shrinks the
+  // composer. Following only before those two changes measures the old floor;
+  // Chromium can then report the layout's scrollTop correction as an upward
+  // scroll and BottomStick (correctly, with the geometry it sees) lets go. The
+  // first call gives immediate feedback; the one after Svelte's DOM flush owns
+  // the actual new floor. This is reserved for an explicit user act, so it can
+  // never drag somebody back while they are merely reading.
+  function followThroughLayout() {
+    stick.follow()
+    void tick().then(() => stick.follow())
+  }
+
   // Re-wired whenever either element is replaced, and unwired with the
   // component: the observer is what notices a height moving under the scroller
   // (a picture loading, a stretch of tool rows folding) with no store change to
@@ -2224,7 +2237,7 @@
     const text = askDraft.trim()
     if (!text) return
     askDraft = ''
-    stick.follow()
+    followThroughLayout()
     answerAsk(text)
   }
 
@@ -2390,7 +2403,7 @@
     // While the model is blocked on ask_user, typed text is the free-text answer.
     if (cockpit.ask) {
       if (draft.trim()) {
-        stick.follow() // answering is the same statement: show me what happens next
+        followThroughLayout() // answering is the same statement: show me what happens next
         answerAsk(draft)
         draft = ''
       }
@@ -2402,7 +2415,7 @@
     // Sending says where you want to be looking. Every message, not only one
     // typed into a running turn — but that is the one that hurt: it is drawn
     // inside the turn, and a reader who had scrolled up never saw it land.
-    stick.follow()
+    followThroughLayout()
     onSend(draft, addressed)
     draft = ''
     // The choice belongs to the message that carried it. The next one starts

@@ -127,6 +127,37 @@ describe('coming back to the bottom', () => {
     expect(el.scrollTop).toBe(1000)
   })
 
+  // The screenshot that found this: a long interjection was inserted into the
+  // live turn at the same moment its multi-line draft disappeared. Chromium's
+  // flex reflow moved scrollTop upward between those two heights, so the first
+  // follow measured the old floor and half the new bubble stayed under the
+  // composer with the jump arrow showing.
+  it('follows the new floor after a mid-turn send changes transcript and composer heights together', async () => {
+    let el!: HTMLDivElement
+    let height = 1000
+    const { container } = render(Chat, {
+      ...baseProps,
+      awaitingReply: true,
+      onSend: () => {
+        height = 1400 // the interjection joined the live phase
+        // The browser also grew .chat when the tall draft cleared. Reproduce
+        // the upward layout correction that used to be mistaken for reading.
+        el.scrollTop = 700
+        el.dispatchEvent(new Event('scroll'))
+      },
+    })
+    el = chatWithGeometry(container, 1000, 400)
+    Object.defineProperty(el, 'scrollHeight', { configurable: true, get: () => height })
+
+    const box = container.querySelector('textarea.input') as HTMLTextAreaElement
+    await fireEvent.input(box, { target: { value: 'ข้อความยาวที่ส่งแทรกระหว่างเทิร์น' } })
+    await fireEvent.keyDown(box, { key: 'Enter' })
+    await tick()
+
+    expect(unpinned(container)).toBe(false)
+    expect(el.scrollTop).toBe(1400)
+  })
+
   it('opening another chat starts at its newest line, not where the last one was left', async () => {
     cockpit.openSession = 'one'
     const { container } = render(Chat, baseProps)

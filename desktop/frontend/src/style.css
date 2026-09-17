@@ -2124,6 +2124,18 @@ button.phase-head:hover { color:var(--text-muted); }
    fill, the same border, the same clipped top-right corner, the same timestamp
    underneath. Where a message was said should change nothing about how it
    looks; the reader has already learned what their own words look like. */
+/* The turn normally owns the assistant's 80% lane (.msg.bot). The instant it
+   contains the other speaker, that lane is the wrong coordinate system: an
+   `align-self:flex-end` user bubble can only reach the right edge of the
+   assistant's lane, which is exactly the mid-column position from the bug
+   report. Let the mixed-speaker turn own the whole conversation lane, then
+   give every assistant-side child its original 80% measure back. Nothing the
+   assistant already wrote moves; only .phase-asked can now reach the same
+   right edge as an ordinary .msg.user. This applies while live and after a
+   reload because both are drawn by phaseBlock. */
+.msg.bot:has(.phase-asked) { align-self:stretch; width:100%; max-width:100%; }
+.msg.bot:has(.phase-asked) > .bubble > :not(.phase) { width:80%; max-width:80%; }
+.msg.bot:has(.phase-asked) .phase > :not(.phase-asked) { width:80%; max-width:80%; align-self:flex-start; }
 .phase-asked {
   align-self:flex-end; display:flex; flex-direction:column; align-items:flex-end;
   max-width:min(80%, 620px);
