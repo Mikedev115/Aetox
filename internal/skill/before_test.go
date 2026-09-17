@@ -66,3 +66,17 @@ func TestTheTeachingSkillClaimsTheMomentItIsFor(t *testing.T) {
 		t.Errorf("the claim does not name the moment it is for: %q", claim)
 	}
 }
+
+// A claim is a routing boundary, not a topic label. "Building a feature"
+// matched nearly every coding task and made a fully specified migration open
+// the design interview before its database contract. The description already
+// had the missing boundary; keep the claim on decisions the request left open.
+func TestBrainstormClaimDoesNotClaimEveryFeatureChange(t *testing.T) {
+	s := bundledDoc(t, "aetox-brainstorm")
+	if strings.Contains(s.Before, "building a feature") {
+		t.Errorf("brainstorm still claims every feature implementation: %q", s.Before)
+	}
+	if !strings.Contains(s.Before, "request leaves that decision open") {
+		t.Errorf("brainstorm claim does not name its open-decision boundary: %q", s.Before)
+	}
+}

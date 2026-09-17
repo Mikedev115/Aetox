@@ -157,7 +157,7 @@ somebody who has never used the app, are its.
 | `aetox-deploy` | shipping moments: checklist, incident, postmortem, git flow |
 | `aetox-documentation` | docs written from the reader's side |
 | `aetox-discernment` | appending one second-look question after a high-stakes answer |
-| `aetox-brainstorm` | a feature or a change to how parts fit, before the first line of code: spike / bounded / architectural, and the yes |
+| `aetox-brainstorm` | choosing behavior or an approach the request leaves open: spike / bounded / architectural, and the yes before implementation |
 | `aetox-run-plan` | the long-work brief the engine hands the model when "ลงมือตามแผนนี้" is pressed — walk the plan's steps, mark each, no narration, finish with the report; edit it to tune a run |
 | `aetox-parallel` | two or more independent problems, one subagent each, at once |
 | `aetox-worktree` | feature work that must not disturb the user's checkout |

@@ -1,6 +1,6 @@
 ---
 name: aetox-brainstorm
-before: building a feature, a component or a change to how parts fit together, before the first line of code
+before: choosing the behavior or approach for a feature, component or cross-module change when the request leaves that decision open
 description: ตอนผู้ใช้ขอให้สร้างฟีเจอร์ คอมโพเนนต์ หรือเปลี่ยนวิธีที่ส่วนต่าง ๆ ต่อกัน และยังไม่มีแบบที่ตกลงกัน
 source: https://github.com/obra/superpowers (brainstorming), adapted
 license: MIT
