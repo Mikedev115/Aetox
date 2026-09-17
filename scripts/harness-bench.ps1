@@ -49,6 +49,7 @@ function Invoke-CapturedProcess {
         [Parameter(Mandatory = $true)][string[]]$Arguments,
         [Parameter(Mandatory = $true)][string]$WorkingDirectory,
         [hashtable]$Environment = @{},
+        [string[]]$RemoveEnvironment = @(),
         [int]$TimeoutMilliseconds = 1200000
     )
 
@@ -63,6 +64,9 @@ function Invoke-CapturedProcess {
     }
     foreach ($entry in $Environment.GetEnumerator()) {
         $start.Environment[$entry.Key] = [string]$entry.Value
+    }
+    foreach ($name in $RemoveEnvironment) {
+        [void]$start.Environment.Remove($name)
     }
 
     $process = New-Object System.Diagnostics.Process
@@ -101,6 +105,7 @@ $prompt = Get-Content -LiteralPath $promptPath -Raw -Encoding UTF8
 $lastMessage = Join-Path $runRoot "last-message.txt"
 $reportPath = Join-Path $runRoot "aetox-report.jsonl"
 $temporaryDataRoot = $null
+$removeEnvironment = @()
 
 if ($Harness -eq "aetox") {
     $binaryRoot = Join-Path $runRoot "bin"
@@ -157,18 +162,20 @@ if ($Harness -eq "aetox") {
         "--ignore-rules",
         "--model", "gpt-5.6-luna",
         "-c", 'model_reasoning_effort="low"',
+        "-c", 'sandbox_mode="workspace-write"',
         "--skip-git-repo-check",
         "--color", "never",
         "--output-last-message", $lastMessage,
         $prompt
     )
     $environment = @{}
+    $removeEnvironment = @(Get-ChildItem Env: | Where-Object { $_.Name -like "CODEX_*" } | Select-Object -ExpandProperty Name)
 }
 
 $started = [DateTimeOffset]::UtcNow
 $timer = [Diagnostics.Stopwatch]::StartNew()
 try {
-    $execution = Invoke-CapturedProcess -File $command -Arguments $arguments -WorkingDirectory $workspace -Environment $environment -TimeoutMilliseconds ($TimeoutMinutes * 60 * 1000)
+    $execution = Invoke-CapturedProcess -File $command -Arguments $arguments -WorkingDirectory $workspace -Environment $environment -RemoveEnvironment $removeEnvironment -TimeoutMilliseconds ($TimeoutMinutes * 60 * 1000)
 } finally {
     $timer.Stop()
     if ($temporaryDataRoot) {

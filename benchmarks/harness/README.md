@@ -28,7 +28,8 @@ The first fixture is a controlled pilot for the database path added in
 - Codex runs `--ephemeral --ignore-user-config --ignore-rules`, without web
   search. It uses `workspace-write` plus approval policy `never`; this gives it
   unattended access to the task workspace without giving the benchmark agent
-  the whole machine.
+  the whole machine. The runner removes inherited `CODEX_*` variables so a
+  benchmark launched from Codex Desktop behaves like a standalone CLI run.
 - Timeout is 20 minutes. A timeout is a scored failure, not a discarded run.
 
 This is a pilot deviation from H7, not a publishable comparison: one task and
