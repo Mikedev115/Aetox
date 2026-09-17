@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Mikedev115/Aetox/internal/callfault"
 )
 
 func editsRoot(t *testing.T, files map[string]string) string {
@@ -98,6 +100,23 @@ func TestEditsRejectsAmbiguousMatch(t *testing.T) {
 	}})
 	if err == nil || !strings.Contains(err.Error(), "matches 2 times") {
 		t.Errorf("ambiguous match should be refused, got: %v", err)
+	}
+	if !callfault.Is(err) {
+		t.Errorf("an ambiguous find is the caller's to make unique, not a system problem: %v", err)
+	}
+}
+
+// A miss has the same ownership as an ambiguous match: the tool inspected a
+// healthy file and the next call needs different find text. Both used to be
+// unmarked fmt.Errorf values, so three refusals became a Problems-page card.
+func TestEditsMarksMissingMatchAsCallerFault(t *testing.T) {
+	root := editsRoot(t, map[string]string{"a.go": "one\ntwo\n"})
+	s := &editsSkill{root: root}
+	_, err := s.ExecuteTool(context.Background(), map[string]any{"edits": []any{
+		map[string]any{"path": "a.go", "find": "three", "replace": "3"},
+	}})
+	if err == nil || !callfault.Is(err) {
+		t.Fatalf("missing find should be a caller fault, got: %v", err)
 	}
 }
 

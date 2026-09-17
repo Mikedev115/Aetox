@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/model"
 )
 
@@ -212,13 +213,17 @@ func (s *editSkill) Execute(ctx context.Context, input Input) (Output, error) {
 	replaceText = newlinesLike(content, replaceText)
 	switch {
 	case count == 0:
-		err = fmt.Errorf("find text not found in file, %s", whyNoMatch(content, findText))
+		// A different call with a find text that names a real place succeeds;
+		// the tool and the machine are healthy. Mark the refusal as the
+		// caller's so the Problems page never turns a safe edit guard into a
+		// system failure.
+		err = callfault.Newf("find text not found in file, %s", whyNoMatch(content, findText))
 		return newToolOutput("edit", command, "", start, false, err), err
 	case count > 1 && !replaceAll:
 		// Still the default, and still the safer one: a model that meant to
 		// change one call site and matched eight has made a mistake worth
 		// stopping, and all=true is how it says it meant all eight.
-		err = fmt.Errorf("find text matches %d times; add surrounding lines to make it unique, or pass all=true to change all %d", count, count)
+		err = callfault.Newf("find text matches %d times; add surrounding lines to make it unique, or pass all=true to change all %d", count, count)
 		return newToolOutput("edit", command, "", start, false, err), err
 	}
 

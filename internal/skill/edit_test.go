@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Mikedev115/Aetox/internal/callfault"
 )
 
 func writeEditFixture(t *testing.T, root, name, content string) string {
@@ -70,6 +72,9 @@ func TestEditSkillRejectsMissingMatch(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("expected not-found error, got %v", err)
 	}
+	if !callfault.Is(err) {
+		t.Errorf("a find text that names no place is the caller's to correct: %v", err)
+	}
 }
 
 func TestEditSkillRejectsAmbiguousMatch(t *testing.T) {
@@ -84,6 +89,9 @@ func TestEditSkillRejectsAmbiguousMatch(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "2 times") {
 		t.Fatalf("expected ambiguity error, got %v", err)
+	}
+	if !callfault.Is(err) {
+		t.Errorf("an ambiguous find is the caller's to make unique: %v", err)
 	}
 	data, _ := os.ReadFile(path)
 	if string(data) != "dup dup" {

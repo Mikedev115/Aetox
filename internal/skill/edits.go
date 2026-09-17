@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mikedev115/Aetox/internal/callfault"
 	"github.com/Mikedev115/Aetox/internal/model"
 )
 
@@ -159,10 +160,18 @@ func (s *editsSkill) ExecuteTool(ctx context.Context, args map[string]any) (Outp
 		case 1:
 			// unique match, safe to replace
 		case 0:
-			err := fmt.Errorf("edit %d (%s): find text not found; nothing was written, %s", i+1, e.Path, whyNoMatch(content, e.Find))
+			// The tool worked: it inspected the file and refused a call whose
+			// find text identifies no place. A different call is the whole
+			// remedy, so mark it at birth rather than letting the system-issue
+			// summarizer report three identical refusals as a broken tool.
+			err := callfault.Newf("edit %d (%s): find text not found; nothing was written, %s", i+1, e.Path, whyNoMatch(content, e.Find))
 			return newToolOutput("edits", command, "", start, false, err), err
 		default:
-			err := fmt.Errorf("edit %d (%s): find text matches %d times; nothing was written, add surrounding lines to make it unique", i+1, e.Path, count)
+			// Same classification as the miss above. Refusing an ambiguous
+			// replacement is the safety feature; presenting that refusal on the
+			// Problems page as a system failure was the bug (tool_runs
+			// 980/981/985 in the report that stopped v1.7.2's publication).
+			err := callfault.Newf("edit %d (%s): find text matches %d times; nothing was written, add surrounding lines to make it unique", i+1, e.Path, count)
 			return newToolOutput("edits", command, "", start, false, err), err
 		}
 
