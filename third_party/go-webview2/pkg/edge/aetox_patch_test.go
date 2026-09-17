@@ -2,7 +2,6 @@ package edge
 
 import (
 	"errors"
-	"math"
 	"testing"
 )
 
@@ -62,17 +61,18 @@ func TestReviveWithoutAWindowOrAHookAnswersFalse(t *testing.T) {
 }
 
 // A tab's bounds are already physical pixels, but its raster still has to
-// follow the host window. These are independent WebView2 settings: switching
-// the first to raw pixels is not permission to freeze the second. On a
-// mixed-DPI desk a stale raster resamples the page and puts pointer/wheel input
-// on a different scale from the pixels the user sees.
+// follow the monitor. These are independent WebView2 settings: switching the
+// first to raw pixels is not permission to freeze the second. On a mixed-DPI
+// desk that freeze resamples the whole page after a window move, showing strong
+// colour fringes around Thai combining marks while the app's own file view is
+// crisp.
 //
 // This fake vtable exercises the real COM-call boundary too. In v1.0.22 the
 // BOOL setter passed a pointer instead of 0/1, so merely asserting that the
 // caller supplied `true` would not have proved what WebView2 actually received.
-func TestControllerUsesRawBoundsAndHostRasterScale(t *testing.T) {
-	var boundsCalled, detectionCalled, rasterCalled bool
-	var boundsMode, detectScale, rasterScale uintptr
+func TestControllerUsesRawBoundsAndTracksMonitorScale(t *testing.T) {
+	var boundsCalled, scaleCalled bool
+	var boundsMode, detectScale uintptr
 	controller3 := &ICoreWebView2Controller3{Vtbl: &ICoreWebView2Controller3Vtbl{
 		PutBoundsMode: NewComProc(func(_ uintptr, mode uintptr) uintptr {
 			boundsCalled = true
@@ -80,13 +80,8 @@ func TestControllerUsesRawBoundsAndHostRasterScale(t *testing.T) {
 			return 0
 		}),
 		PutShouldDetectMonitorScaleChanges: NewComProc(func(_ uintptr, enabled uintptr) uintptr {
-			detectionCalled = true
+			scaleCalled = true
 			detectScale = enabled
-			return 0
-		}),
-		PutRasterizationScale: NewComProc(func(_ uintptr, scale uintptr) uintptr {
-			rasterCalled = true
-			rasterScale = scale
 			return 0
 		}),
 	}}
@@ -94,15 +89,11 @@ func TestControllerUsesRawBoundsAndHostRasterScale(t *testing.T) {
 	e := NewChromium()
 	e.SetErrorCallback(func(err error) { t.Fatalf("configuring controller: %v", err) })
 	e.configureController3(controller3)
-	e.SetRasterizationScale(1.75)
 
 	if !boundsCalled || boundsMode != uintptr(COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS) {
 		t.Errorf("bounds mode call = (%v, %d), want raw pixels", boundsCalled, boundsMode)
 	}
-	if !detectionCalled || detectScale != 0 {
-		t.Errorf("monitor-scale call = (%v, %d), want BOOL FALSE by value", detectionCalled, detectScale)
-	}
-	if !rasterCalled || rasterScale != uintptr(math.Float64bits(1.75)) {
-		t.Errorf("raster-scale call = (%v, %#x), want IEEE-754 1.75 by value", rasterCalled, rasterScale)
+	if !scaleCalled || detectScale != 1 {
+		t.Errorf("monitor-scale call = (%v, %d), want BOOL TRUE by value", scaleCalled, detectScale)
 	}
 }

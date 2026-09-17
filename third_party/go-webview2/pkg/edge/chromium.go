@@ -58,7 +58,6 @@ type Chromium struct {
 	}
 
 	controller                       *ICoreWebView2Controller
-	controller3                      *ICoreWebView2Controller3 // AETOX PATCH: explicit host-DPI raster sync
 	webview                          *ICoreWebView2
 	inited                           uintptr
 	embedFailed                      uintptr // AETOX PATCH: controller creation failed; Embed must report false
@@ -436,34 +435,24 @@ func (e *Chromium) CreateCoreWebView2ControllerCompleted(res uintptr, controller
 //
 // Aetox measures an embedded tab in physical pixels, so raw-pixel bounds are
 // intentional. That setting says nothing about RasterizationScale, though.
-// AETOX PATCH: the native host owns the raster scale. WebView2's automatic
-// monitor detection depends on the child HWND receiving the right move/DPI
-// notifications; an embedded child does not receive all of them when its
-// top-level Wails parent crosses monitors. desktop/browser_windows.go reads the
-// DPI from the actual host HWND on open, resize and WM_DPICHANGED, then calls
-// SetRasterizationScale. Keeping one owner also keeps painting and pointer/
-// wheel hit-testing on the same scale.
+// Turning monitor-scale detection off makes the host responsible for updating
+// that property itself; this host never did. After the app moved between the
+// owner's 175% and 100% displays, the main Wails view followed the new monitor
+// while the tab kept the old raster. DWM then resampled the page, which is the
+// coloured fringe most visible around Thai vowels and tone marks.
+//
+// AETOX PATCH: leave WebView2 in charge of monitor and text-scale changes.
+// Raw bounds keep the child HWND the requested physical size while an updated
+// RasterizationScale makes Chromium repaint its content at the monitor's real
+// scale. The two properties are independent by WebView2's contract.
 func (e *Chromium) configureController3(controller3 *ICoreWebView2Controller3) {
-	e.controller3 = controller3
 	if controller3 == nil {
 		return
 	}
 	if err := controller3.PutBoundsMode(COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS); err != nil {
 		e.errorCallback(err)
 	}
-	if err := controller3.PutShouldDetectMonitorScaleChanges(false); err != nil {
-		e.errorCallback(err)
-	}
-}
-
-// SetRasterizationScale repaints the WebView at the scale of its real host
-// window. Bounds remain raw device pixels, so this changes content density and
-// input mapping without changing the child HWND's rectangle.
-func (e *Chromium) SetRasterizationScale(scale float64) {
-	if e.controller3 == nil || scale <= 0 {
-		return
-	}
-	if err := e.controller3.PutRasterizationScale(scale); err != nil {
+	if err := controller3.PutShouldDetectMonitorScaleChanges(true); err != nil {
 		e.errorCallback(err)
 	}
 }

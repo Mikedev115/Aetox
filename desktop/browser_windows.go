@@ -102,7 +102,6 @@ const (
 	swRestore          = 9
 	wmSize             = 0x0005
 	wmClose            = 0x0010
-	wmDpiChanged       = 0x02E0
 
 	// RGN_DIFF: what is in the first region and not in the second — the notch,
 	// subtracted from the screen.
@@ -186,10 +185,6 @@ type win32Tab struct {
 	// same frame, and a second PutBounds for the same rect is a second page
 	// relayout for nothing.
 	lastX, lastY, lastW, lastH int
-	// lastDPI is the host HWND's scale already sent to WebView2. The controller
-	// uses raw-pixel bounds, so the raster scale is the separate fact that keeps
-	// text, hit-testing and wheel input aligned on a mixed-DPI desk.
-	lastDPI uintptr
 	// hostThread and reportErr are the tripwire, not the plumbing: see
 	// requireHostThread.
 	hostThread uint32
@@ -428,13 +423,6 @@ func (t *win32Tab) setBounds(x, y, w, h int) {
 	if t.detached {
 		return
 	}
-	// A top-level move does not necessarily move this child relative to its
-	// parent, so WebView2 cannot infer the new monitor from child bounds alone.
-	// Say it explicitly even when the rectangle below is unchanged.
-	if err := t.chromium.NotifyParentWindowPositionChanged(); err != nil && t.reportErr != nil {
-		t.reportErr(err)
-	}
-	t.syncRasterizationScale()
 	// Same rectangle: the raise is still owed (see hwndTop), the relayout is
 	// not. SWP_NOMOVE|SWP_NOSIZE makes it a Z-order change and nothing more.
 	if x == t.lastX && y == t.lastY && w == t.lastW && h == t.lastH && t.lastW > 0 {
@@ -445,23 +433,6 @@ func (t *win32Tab) setBounds(x, y, w, h int) {
 	procSetWindowPos.Call(t.hwnd, hwndTop, uintptr(x), uintptr(y), uintptr(w), uintptr(h), swpNoActivate)
 	t.applyShape()
 	t.chromium.Resize()
-}
-
-// syncRasterizationScale gives WebView2 the DPI of the HWND it actually paints
-// into. The frontend already supplies raw device-pixel bounds; this is only the
-// raster/input scale inside those bounds. It deliberately runs on the WebView's
-// owner thread through every caller of setBounds and WM_DPICHANGED.
-func (t *win32Tab) syncRasterizationScale() {
-	if t.hwnd == 0 || t.chromium == nil {
-		return
-	}
-	dpi, _, _ := procGetDpiForWindow.Call(t.hwnd)
-	if dpi == 0 || dpi == t.lastDPI {
-		return
-	}
-	t.lastDPI = dpi
-	t.chromium.SetRasterizationScale(float64(dpi) / 96.0)
-	debuglog.Msg("browser.dpi: hwnd=%#x dpi=%d scale=%.2f", t.hwnd, dpi, float64(dpi)/96.0)
 }
 
 // detach takes this tab out of the app and gives it a window of its own.
@@ -792,11 +763,6 @@ func (h *win32Host) run(att *startAttempt) {
 			if t := h.tabByHwnd(hwnd); t != nil && t.chromium != nil {
 				t.chromium.Resize()
 			}
-		case wmDpiChanged:
-			if t := h.tabByHwnd(hwnd); t != nil && t.chromium != nil {
-				t.syncRasterizationScale()
-				t.chromium.Resize()
-			}
 		case wmClose:
 			if t := h.tabByHwnd(hwnd); t != nil && t.onClosed != nil {
 				t.onClosed()
@@ -1027,7 +993,6 @@ func (h *win32Host) openTab(id, url string, x, y, w, hgt int, cb tabCallbacks) t
 		return nil
 	}
 	debuglog.Msg("browser.open(%s): embed ok, navigating", id)
-	view.syncRasterizationScale()
 	// The engine's own default is white, and it shows from the moment the
 	// window is visible until the page's first paint — a white flash on a
 	// dark app for every open and every navigation between dark pages. The
