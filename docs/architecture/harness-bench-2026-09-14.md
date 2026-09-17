@@ -219,8 +219,8 @@ copy workspace · ยิง prompt · จับเวลา · เก็บ tran
 ยังไม่มี — ห้ามเขียนอะไรในหัวข้อนี้ก่อนขั้น 5 ของ §8 จบ
 
 Pilot ของ runner + งาน SQLite หนึ่งงานรันจริงแล้วเมื่อ 18 ก.ย. 2026; ทั้ง Aetox และ Codex
-ผ่าน hidden tests 6/6 แต่มีเพียงหนึ่ง scored run ต่อฝั่ง จึงไม่ใช่ผลของหัวข้อนี้และห้ามนำไป
-เผยแพร่ ดู protocol, setup failures และ raw-artifact paths ที่
+ผ่าน hidden tests 6/6 ครบสามรอบต่อฝั่งบน hash เดียวกัน แต่ยังมีเพียง task shape เดียว จึงไม่ใช่
+ผลของหัวข้อนี้และห้ามนำไปเผยแพร่ ดู protocol, setup failures, median และ raw-artifact paths ที่
 [`harness-database-pilot-2026-09-18.md`](../benchmarks/harness-database-pilot-2026-09-18.md)
 
 ---
