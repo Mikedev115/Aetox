@@ -13,6 +13,9 @@ func TestDatabaseSkillShipsAsALocalFirstPack(t *testing.T) {
 	if strings.TrimSpace(s.Before) == "" {
 		t.Error("aetox-database has no before trigger, so the prompt cannot route database work to it")
 	}
+	if !strings.Contains(s.body, "calls together in one reply") {
+		t.Error("aetox-database makes independent reference reads consume separate model rounds")
+	}
 
 	want := map[string]bool{
 		"references/local-workflow.md": false,

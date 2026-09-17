@@ -1127,11 +1127,19 @@ func reads(desk Desk) string {
 		}
 		return b.String()
 	}
+	if len(claimed) > 0 {
+		b.WriteString("Each before claim below is a precondition: when one matches, put its skill_view " +
+			"in the first tool-call reply, before doing that work. Send several matching views together; " +
+			"do not narrate the lookup.\n")
+		for _, r := range claimed {
+			fmt.Fprintf(&b, "- before %s: skill_view %q\n", r.Before, r.Skill)
+		}
+	}
 	b.WriteString("Skills installed on this machine, one line each; skill_view opens the whole document " +
-		"and skills_list returns the same shelf with fuller descriptions. When the work in hand is " +
-		"what one of these covers, read it before starting — it is part of doing the work, not a " +
-		"step worth mentioning, and it holds even for work you could do without it: the skill is " +
-		"how this user wants that work done.\n")
+		"and skills_list returns the same shelf with fuller descriptions. When a skill without a before " +
+		"claim covers the work in hand, read it before starting — it is part of doing the work, not a " +
+		"step worth mentioning, and it holds even for work you could do without it: the skill is how " +
+		"this user wants that work done.\n")
 	for _, r := range claims {
 		if r.Skill == "" {
 			continue
@@ -1140,12 +1148,6 @@ func reads(desk Desk) string {
 			fmt.Fprintf(&b, "- %s: %s\n", r.Skill, desc)
 		} else {
 			fmt.Fprintf(&b, "- %s\n", r.Skill)
-		}
-	}
-	if len(claimed) > 0 {
-		b.WriteString("Some of them name the work they are read before:\n")
-		for _, r := range claimed {
-			fmt.Fprintf(&b, "- before %s: skill_view %q\n", r.Before, r.Skill)
 		}
 	}
 	return b.String()

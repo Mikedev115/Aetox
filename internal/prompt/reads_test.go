@@ -72,10 +72,16 @@ func TestReadsListEveryInstalledSkill(t *testing.T) {
 	if strings.Contains(got, `skill_view "invoice"`) || strings.Contains(got, `skill_view "bare"`) {
 		t.Errorf("a skill with no claim gets an index line, not a claim:\n%s", got)
 	}
-	// Index before claims: the model reads what is on the shelf, then which
-	// of it decided its own moment.
-	if strings.Index(got, "- invoice:") > strings.Index(got, "before writing a web page") {
-		t.Errorf("the index must come before the claims:\n%s", got)
+	// Claims before the full index: a precondition must not be buried under
+	// dozens of optional descriptions before the model reaches it.
+	if !strings.Contains(got, "Each before claim below is a precondition") {
+		t.Errorf("the claims are not stated as preconditions:\n%s", got)
+	}
+	if !strings.Contains(got, "Send several matching views together") {
+		t.Errorf("matching claims are not coalesced into the first tool-call reply:\n%s", got)
+	}
+	if strings.Index(got, "before writing a web page") > strings.Index(got, "- invoice:") {
+		t.Errorf("the claims must come before the full index, where they cannot be buried by it:\n%s", got)
 	}
 }
 

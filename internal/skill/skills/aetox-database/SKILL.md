@@ -18,7 +18,9 @@ container, stop before execution.
 
 ## Load only what the task needs
 
-Always read `references/local-workflow.md` first. Then read:
+Select the references the task needs, then issue their independent
+`skill_view` calls together in one reply; do not spend a round waiting for one
+before opening the next. Always include `references/local-workflow.md`, plus:
 
 - `references/migrations.md` for schema, ORM-model, migration, seed or
   backfill changes.
