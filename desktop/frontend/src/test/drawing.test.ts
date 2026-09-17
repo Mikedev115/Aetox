@@ -106,6 +106,59 @@ describe('a drawing markdown could have taken apart', () => {
     expect(out).not.toContain('<rect ')
   })
 
+  // The model meant to draw, then show a text transcript, but wrapped the SVG
+  // in ```html and opened ```text before closing it. Markdown cannot nest
+  // fences, so the whole remainder became one highlighted HTML block — the
+  // exact shape in the owner's screenshot.
+  it('recovers a drawing from an html fence accidentally left open before the next tagged fence', () => {
+    const out = renderMarkdown([
+      'ทางได้จริง:',
+      '```html',
+      svg,
+      '',
+      'ต่างจาก T01 คือมี chain นี้จริง:',
+      '```text',
+      'ผลิตภัณฑ์/บริษัท',
+      '→ release/technical report',
+      '```',
+      '',
+      'สิ่งที่ต้องทำตอนเริ่มจริงมีแค่นี้ครับ',
+    ].join('\n'))
+    const host = document.createElement('div')
+    host.innerHTML = out
+
+    expect(host.querySelector('.drawing-box svg rect')).toBeTruthy()
+    expect(host.querySelectorAll('.codeblock')).toHaveLength(1)
+    expect(host.querySelector('.codeblock .lang')?.textContent).toBe('text')
+    expect(host.querySelector('.codeblock')?.textContent).toContain('release/technical report')
+    expect(host.textContent).toContain('ต่างจาก T01')
+    expect(host.textContent).toContain('สิ่งที่ต้องทำตอนเริ่มจริง')
+  })
+
+  it('repairs the same malformed nesting while the answer is still streaming', () => {
+    const out = renderStreamingMarkdown([
+      '```html',
+      svg,
+      '',
+      'อธิบายต่อ',
+      '```text',
+      'บล็อกนี้กำลังเขียน',
+    ].join('\n'))
+
+    expect(out).toContain('drawing-box')
+    expect(out).toContain('<rect')
+    expect(out).toContain('อธิบายต่อ')
+    expect(out).toContain('บล็อกนี้กำลังเขียน')
+  })
+
+  it('keeps an intentional html-fenced SVG as source', () => {
+    const out = renderMarkdown(`\`\`\`html\n${svg}\n\`\`\``)
+
+    expect(out).toContain('codeblock')
+    expect(out).not.toContain('drawing-box')
+    expect(out).not.toContain('<rect ')
+  })
+
   it('keeps a drawing indented under a list item inside the list', () => {
     const out = renderMarkdown('- ตัวอย่าง\n\n  <svg viewBox="0 0 10 10"><rect width="4" height="4" /></svg>')
 

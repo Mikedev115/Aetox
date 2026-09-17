@@ -535,6 +535,51 @@ function escapeAttr(value: string): string {
 const DRAWING = /<svg\b[\s\S]*?<\/svg\s*>/gi
 const PLACEHOLDER = /<!--aetox-drawing-(\d+)-->/g
 
+// A drawing occasionally arrives wrapped in ```html even though the drawing
+// contract asks for raw SVG. A deliberate fenced example must stay source —
+// that distinction is why liftDrawings excludes fences below — but the failure
+// in the owner's screenshot is unambiguous: after </svg> the model opened a
+// second tagged fence (```text) without closing the html fence first. Markdown
+// has no nested fences, so it swallowed the picture, the prose after it and
+// the inner fence into one enormous highlighted code block.
+//
+// Recover only that impossible nesting. Merely fencing an SVG, even with an
+// unclosed fence while it streams, is left alone because it may be source the
+// user asked to see. Removing the mistaken OUTER opener makes the SVG ordinary
+// drawing markup and lets the inner tagged fence pair with the bare closer the
+// model wrote for it. The same rewrite therefore works mid-stream and after the
+// answer is stored.
+const DRAWING_FENCE = /^ {0,3}(`{3,}|~{3,})[ \t]*(?:html|svg|xml)(?:[ \t]+[^\r\n]*)?[ \t]*\r?\n/gim
+const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})([^\r\n]*)$/gm
+
+function unwrapMisnestedDrawingFence(text: string): string {
+  DRAWING_FENCE.lastIndex = 0
+  for (let open = DRAWING_FENCE.exec(text); open !== null; open = DRAWING_FENCE.exec(text)) {
+    const bodyAt = DRAWING_FENCE.lastIndex
+    const first = text.slice(bodyAt).search(/\S/)
+    if (first === -1) continue
+    const svgAt = bodyAt + first
+    if (!/^<svg\b/i.test(text.slice(svgAt))) continue
+
+    const close = /<\/svg\s*>/i.exec(text.slice(svgAt))
+    if (!close) continue
+    const afterSvg = svgAt + close.index + close[0].length
+
+    FENCE_LINE.lastIndex = afterSvg
+    for (let next = FENCE_LINE.exec(text); next !== null; next = FENCE_LINE.exec(text)) {
+      const marker = next[1]
+      if (marker[0] !== open[1][0] || marker.length < open[1].length) continue
+      // A bare marker is the ordinary close of the outer source fence. A tag
+      // here is the nested opener Markdown cannot represent, and is the proof
+      // that the outer html marker was the mistake rather than an instruction
+      // to show source.
+      if (next[2].trim() === '') break
+      return text.slice(0, open.index) + text.slice(bodyAt)
+    }
+  }
+  return text
+}
+
 // Fenced blocks are the one place an <svg> at the start of a line is source
 // code the user asked to see, not a picture.
 function fencedSpans(text: string): Array<[number, number]> {
@@ -612,7 +657,8 @@ function draw(text: string): string {
   footnoteAt = new Map()
   footnoteBody = new Map()
   footnoteOrder = []
-  const { text: lifted, held } = liftDrawings(text)
+  const repaired = unwrapMisnestedDrawingFence(text)
+  const { text: lifted, held } = liftDrawings(repaired)
   const html = (marked.parse(lifted, { async: false }) as string).replace(
     PLACEHOLDER,
     (_, i: string) => held[Number(i)] ?? ''
