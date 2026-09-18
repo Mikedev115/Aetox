@@ -9,16 +9,17 @@ import BrowserPane from '../lib/workbench/BrowserPane.svelte'
 import { workbench, openBrowserTab } from '../lib/stores/workbench.svelte'
 import { BrowserSetBounds, BrowserSetZoom, BrowserSetVisible } from './mocks/wailsApp'
 
-const PANE = { x: 100, y: 50, width: 400, height: 900 }
+const PANE = { x: 100, y: 50, width: 420, height: 900 }
 // Pane pixels the native window never gets, on every side. ไฟบอกสถานะ's
 // border light is drawn by the app, and the app draws behind this window — so
 // the strip it runs in has to be kept back from the page (BrowserPane
 // PANE_FRAME, §174). Every expectation below measures from the framed box, not
 // from the pane.
-const FRAME = 3
+const FRAME = { top: 3, right: 3, bottom: 3, left: 12 }
 const BOX = {
-  x: PANE.x + FRAME, y: PANE.y + FRAME,
-  width: PANE.width - FRAME * 2, height: PANE.height - FRAME * 2,
+  x: PANE.x + FRAME.left, y: PANE.y + FRAME.top,
+  width: PANE.width - FRAME.left - FRAME.right,
+  height: PANE.height - FRAME.top - FRAME.bottom,
 }
 
 beforeEach(() => {
@@ -50,10 +51,17 @@ describe('browser device presets', () => {
     expect(lastBounds()).toEqual(['web-1', BOX.x, BOX.y, BOX.width, BOX.height])
   })
 
+  it('keeps the native HWND clear of the inspector resize seam', async () => {
+    await mount()
+    const [, x] = lastBounds()
+    expect(x - PANE.x).toBe(FRAME.left)
+    expect(FRAME.left).toBeGreaterThan(3)
+  })
+
   it('centers a device that already fits, without upscaling it', async () => {
     await mount({ name: 'iPhone 12 Pro', w: 390, h: 844 })
     expect(lastZoom()).toBe(1)
-    expect(lastBounds()).toEqual(['web-1', 105, 78, 390, 844]) // centered in the 394x894 framed box
+    expect(lastBounds()).toEqual(['web-1', 120, 78, 390, 844]) // centered in the 405x894 framed box
   })
 
   it('shrinks a device larger than the pane and zooms to match', async () => {

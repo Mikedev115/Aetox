@@ -673,9 +673,9 @@ date-stamped, because the rule above does not have an exception for numbers we w
 
 </details>
 
-## Status — v1.7.4
+## Status — v1.7.5
 
-The core is in place. [Release notes](docs/release-notes/v1.7.4.md) ·
+The core is in place. [Release notes](docs/release-notes/v1.7.5.md) ·
 [roadmap](ROADMAP.md) · [architecture](ARCHITECTURE.md).
 
 Three things it does today that are worth knowing about:

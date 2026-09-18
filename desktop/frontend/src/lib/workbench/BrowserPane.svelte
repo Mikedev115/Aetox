@@ -77,8 +77,15 @@
     if (sx < x || sy < y || sx + sw > x + w || sy + sh > y + h) hidingForDrag = true
   }
 
-  /** Pane pixels reserved around the native window, in CSS px. See layout(). */
-  const PANE_FRAME = 3
+  /** Pane pixels reserved around the native window, in CSS px. See layout().
+   *
+   * The left side is deliberately wider than the decorative frame. The page
+   * is a child HWND and therefore sits above the DOM; if independent DPI
+   * rounding lets it reach the inspector's resize seam, that real window wins
+   * the hit test and the Svelte handle can neither hover nor begin a drag. A
+   * permanent moat on the seam side keeps the pointer on the app's own
+   * webview in release builds too. */
+  const PANE_FRAME = { top: 3, right: 3, bottom: 3, left: 12 } as const
   // How much body shows round a phone's screen, in pane pixels. Not scaled with
   // the device: a bezel that shrank with the phone would be two pixels of grey
   // on a screen small enough to need the frame most.
@@ -139,20 +146,20 @@
   // the pane at zoom 1.
   function layout(el: HTMLElement): { rect: [number, number, number, number]; css: NativeRect; scale: number; w: number; h: number } {
     const box = el.getBoundingClientRect()
-    // A few pixels of the pane kept back from the native window, all the way
-    // round. ไฟบอกสถานะ's border light is drawn by the app, and the app
-    // draws BEHIND this window: flush to the pane, the comet would run its lap
-    // hidden under the page on three sides out of four. This is the strip it
-    // runs in (§174).
+    // A few pixels of the pane kept back from the native window. ไฟบอกสถานะ's
+    // border light is drawn by the app, and the app draws BEHIND this window:
+    // flush to the pane, the comet would run its lap hidden under the page on
+    // three sides out of four. The wider left side also protects the resize
+    // seam from the native HWND's hit testing (see PANE_FRAME).
     //
     // Held back always, not only while the agent works. Insetting on demand
     // would resize the native window twice per browser call, and every resize
     // is a real page reflow under an agent that is in the middle of reading it.
-    // A constant frame costs three pixels and moves nothing, ever.
+    // A constant frame costs a few pixels and moves nothing, ever.
     const r = {
-      x: box.x + PANE_FRAME, y: box.y + PANE_FRAME,
-      width: Math.max(0, box.width - PANE_FRAME * 2),
-      height: Math.max(0, box.height - PANE_FRAME * 2),
+      x: box.x + PANE_FRAME.left, y: box.y + PANE_FRAME.top,
+      width: Math.max(0, box.width - PANE_FRAME.left - PANE_FRAME.right),
+      height: Math.max(0, box.height - PANE_FRAME.top - PANE_FRAME.bottom),
     }
     const s = window.devicePixelRatio
     const vp = tab.viewport

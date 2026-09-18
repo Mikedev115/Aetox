@@ -92,7 +92,7 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
    overlapping the sidebar-toggle button — hide the brand with its column */
 .app.sidebar-collapsed .brand { display:none; }
 
-.resize-handle { cursor:col-resize; position:relative; }
+.resize-handle { cursor:col-resize; position:relative; touch-action:none; user-select:none; }
 .resize-handle.handle-l { grid-area:handle-l; }
 .resize-handle.handle-r { grid-area:handle-r; }
 /* The seam used to be this line. It is the card edge now, so the line has
@@ -107,6 +107,16 @@ button { font:inherit; color:inherit; background:none; border:none; cursor:point
   background:transparent; transition:background var(--dur-tint) ease;
 }
 .resize-handle:hover::after, .resize-handle.dragging::after { background:var(--accent); width:2px; left:2px; }
+/* The inspector can contain a real child HWND. Native windows composite and
+   hit-test above this WebView, so a one-pixel placement/rounding overlap can
+   otherwise erase the whole 6px target in a packaged build. Extend the right
+   handle into the main DOM column, where the child window can never cover it,
+   and keep its resting seam visible so the affordance is not discoverable by
+   accident only. BrowserPane also leaves a moat inside the inspector. */
+.resize-handle.handle-r::before {
+  content:""; position:absolute; top:0; bottom:0; left:-5px; right:-5px;
+}
+.resize-handle.handle-r::after { background:var(--border-default); }
 /* handle-l sits at the sidebar's right edge rather than centred in its own 6px
    track. It used to be for alignment: .brand carried a border-right at that x,
    and a line centred in the track would have visibly stepped away from it at

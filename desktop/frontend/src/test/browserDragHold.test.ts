@@ -7,10 +7,15 @@ import BrowserPane from '../lib/workbench/BrowserPane.svelte'
 import { panelDrag } from '../lib/panelDrag.svelte'
 import { BrowserSetBounds, BrowserSetVisible } from './mocks/wailsApp'
 
-const FRAME = 3
+const FRAME = { top: 3, right: 3, bottom: 3, left: 12 }
 let pane = { x: 100, y: 50, width: 400, height: 900 }
 // What the pane sends for the current box: framed, at devicePixelRatio 1.
-const boxOf = (p: typeof pane) => [p.x + FRAME, p.y + FRAME, p.width - FRAME * 2, p.height - FRAME * 2]
+const boxOf = (p: typeof pane) => [
+  p.x + FRAME.left,
+  p.y + FRAME.top,
+  p.width - FRAME.left - FRAME.right,
+  p.height - FRAME.top - FRAME.bottom,
+]
 
 beforeEach(() => {
   vi.clearAllMocks()
