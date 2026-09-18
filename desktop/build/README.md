@@ -8,6 +8,22 @@ The structure is:
 * darwin - macOS specific files
 * windows - Windows specific files
 
+## Build output policy
+
+The Windows runtime has exactly two canonical executables:
+
+- `aetox.exe`
+- `aetox-engine.exe`
+
+Do not create extra test or diagnostic executables in `build/bin` (for example,
+`aetox-divider-test.exe`). Use `wails dev` for interactive checks, or build the
+canonical `aetox.exe` in place when a production bundle must be inspected.
+
+Installable packages are created only by `.github/workflows/release.yml`: the
+official NSIS installer for GitHub and the official MSIX package for Microsoft
+Partner Center. Do not make additional installer variants locally unless a
+separate installer format is explicitly requested.
+
 ## Mac
 
 The `darwin` directory holds files specific to Mac builds.
