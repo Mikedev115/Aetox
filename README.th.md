@@ -17,7 +17,7 @@
 
 <p align="center">
   <a href="README.md">English</a> ·
-  <a href="https://mikedev115.github.io/aetox-landing/">เว็บไซต์</a> ·
+  <a href="https://mikedev115.github.io/Aetox-landing/">เว็บไซต์</a> ·
   <a href="https://apps.microsoft.com/detail/9N4KKBRRSCZZ">Microsoft Store</a> ·
   <a href="https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe">ดาวน์โหลด</a> ·
   <a href="https://www.facebook.com/share/g/1BnXC5EiWg/">ชุมชน</a> ·
