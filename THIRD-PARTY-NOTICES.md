@@ -93,12 +93,16 @@ Bundled into the application by Vite and shipped inside the binary.
 |:---|:---|:---|
 | @xterm/xterm | 6.0.0 | MIT |
 | @xterm/addon-fit | 0.11.0 | MIT |
+| @xterm/addon-search | 0.16.0 | MIT |
 | monaco-editor | 0.56.0 | MIT |
 | marked | 14.0.0 | MIT |
 | katex | 0.18.4 | MIT |
 | highlight.js | 11.11.1 | BSD-3-Clause |
 | dompurify | 3.4.8 | MPL-2.0 OR Apache-2.0 |
 | svelte (runtime) | 5.x | MIT |
+| vscode-textmate | 9.3.2 | MIT |
+| vscode-oniguruma | 2.0.1 | MIT |
+| tm-grammars | 1.32.20 | MIT (the collection); each grammar keeps its upstream licence — svelte, vue, astro, zig, graphql and the VS Code html/css/js/ts/json/markdown grammars they embed: MIT; prisma: Apache-2.0; toml and yaml: the TextMate bundle licence (permissive) |
 
 `dompurify` is dual-licensed; Aetox includes it under the **Apache-2.0**
 alternative, which carries no file-level copyleft obligation.
@@ -200,7 +204,7 @@ copied, translated, or vendored — the implementations below are original Go.
 
 | What follows their shape | Where it lives |
 |:---|:---|
-| Tool names and parameter conventions — `read` `write` `edit` `grep` `glob` | [internal/skill/](internal/skill/) |
+| Tool names and parameter conventions — `read` `write` `edit` `grep` `glob` | [internal/skill/](internal/skill) |
 | A tool loop that runs until the model stops calling tools, rather than to a fixed cap | [internal/cognitive/agent.go](internal/cognitive/agent.go) |
 | The doom-loop guard: warn at three identical calls, stop after more | same file |
 | One global output-token ceiling per turn (`OUTPUT_TOKEN_MAX`) | same file |

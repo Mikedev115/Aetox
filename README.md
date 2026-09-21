@@ -11,23 +11,44 @@
 <p align="center">
   <a href="https://github.com/Mikedev115/Aetox/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Mikedev115/Aetox?color=2f81f7"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-proprietary%20%C2%B7%20source%20available-blue"></a>
-  <img alt="Tests" src="https://img.shields.io/badge/tests-3%2C371%20Go%20%2B%201%2C747%20UI-brightgreen">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-3%2C648%20Go%20%2B%202%2C106%20UI-brightgreen">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2B-lightgrey">
 </p>
 
 <p align="center">
   <a href="README.th.md">ภาษาไทย</a> ·
-  <a href="https://mikedev115.github.io/aetox-landing/">Website</a> ·
+  <a href="https://mikedev115.github.io/Aetox-landing/">Website</a> ·
   <a href="https://apps.microsoft.com/detail/9N4KKBRRSCZZ">Microsoft Store</a> ·
   <a href="https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe">Download</a> ·
-  <a href="https://www.facebook.com/share/g/1BnXC5EiWg/">Community</a> ·
-  <a href="ARCHITECTURE.md">Architecture</a> ·
-  <a href="docs/DECISIONS.md">Every decision, and why</a>
+  <a href="https://www.facebook.com/share/g/1BnXC5EiWg/">Community</a>
 </p>
 
 <p align="center">
   <img src="docs/assets/hero-app.png" alt="Aetox desktop" width="90%">
 </p>
+
+---
+
+> **The source in this repository stops at v1.7.0 (2026-09-15). The product does not.**
+> Every release after that still lands here — tags, installers, the portable zip, the
+> Linux engine, checksums and release notes — and the in-app update check, scoop and the
+> Microsoft Store keep working exactly as before.
+>
+> **Why 1.7.0 and not 1.8.0.** The source was open through v1.8.0 for one day (20–21
+> September 2026) and was then rolled back. What arrived between 1.7.0 and 1.8.0 — the
+> engine split from the window and talking to it over a socket, MCP tools that became a
+> shelf instead of a tool block resent every turn, an editor with no extension market, the
+> context handling that reaches a 97% cache hit — is the architectural layer that makes
+> Aetox as cheap to run as it is. From the outside it looks like any other agent app; the
+> inside is where the author spent the most design time, and is the part he chose to keep.
+> Not closed because anyone did anything, but because it is the most valuable part of the
+> work, and he is the one person still building it.
+>
+> The code you can read here is the real v1.7.0, unchanged, and remains readable for
+> learning under the [LICENSE](LICENSE). The measured numbers are still published in full
+> under [docs/reports](docs/reports). Bug reports still go to
+> [Issues](https://github.com/Mikedev115/Aetox/issues); a star still tells the author
+> something.
 
 ---
 
@@ -58,7 +79,7 @@ Aetox is a desktop application for Windows that runs an AI agent against your ow
 You describe what needs doing; it reads and writes real files, runs real commands in a real
 shell, and drives a real browser you can watch.
 
-It is two self-contained executables, 80.8 MB together — `aetox.exe`, the window, and since 1.6.0
+It is two self-contained executables, 83.4 MB together — `aetox.exe`, the window, and since 1.6.0
 `aetox-engine.exe`, the half that thinks and works, beside it. There is no runtime to install
 alongside them, no `node_modules`, no bundled copy of Chromium. It talks to whichever model you point it at —
 a hosted API, a subscription you already pay for, or a 9B/35B running in LM Studio or Ollama on
@@ -101,7 +122,7 @@ both; the language switch is in Settings and in the first-run wizard. This READM
 - **Capability comes from the app, not from model parameters** — Thai/English OCR and offline
   speech-to-text are tools the app drives, so a 9B/35B model on your own GPU does these jobs as
   well as a frontier one.
-- **24 model providers** — cloud (OpenAI, Anthropic, Gemini, DeepSeek, Groq, and more) and local
+- **25 model providers** — cloud (OpenAI, Anthropic, Gemini, DeepSeek, Groq, and more) and local
   (LM Studio, Ollama), switchable mid-conversation with context intact. Full list under
   [Everything it can do](#everything-it-can-do).
 - **The engine is a process of its own, and it can run on another machine.** Since 1.6.0 the
@@ -114,6 +135,24 @@ both; the language switch is in Settings and in the first-run wizard. This READM
   what the assistant is doing, greets you by name and reads its finished answer aloud. Keep it in
   the window, or let it out onto the desktop as a real Win32 window with no browser behind it —
   drag it to any monitor, resize it, and it keeps working while you do.
+
+## Use Aetox as a Telegram or Discord bot
+
+Open **Yours → Connections**, then choose Telegram or Discord:
+
+1. Telegram: create a bot with `@BotFather` and connect its bot token.
+2. Discord: create an app in the Discord Developer Portal, add a bot, and invite it with View
+   Channels, Send Messages, and Read Message History. Message Content Intent is not required.
+3. Aetox shows a one-time `/pair 123456` command after connecting. Send it from the Telegram chat
+   or Discord channel you want to authorize (mention the bot when pairing in a Discord server).
+
+This is another doorway to Aetox's real main assistant, not a separate bot assistant: it uses the
+Assistant desk's identity and tools, and a new conversation starts with the current default model. Each paired Telegram chat or Discord
+channel keeps its own conversation history instead of appending to the chat currently open in the
+desktop window. The bot accepts messages only from the paired conversation; every member of that
+conversation can use it. Mention it in Discord server channels; DMs work directly. Use `/new` to
+start with fresh context. Tokens and pairing data are encrypted at rest, and listeners run only
+while Aetox is running.
 
 ## Install
 
@@ -130,11 +169,15 @@ One line, no web page in the way:
 winget install --id=9N4KKBRRSCZZ --source=msstore
 ```
 
+(To look before installing: `winget search aetox`. The Store source only answers an `--id` lookup
+with `--exact`, so `winget search --id 9N4KKBRRSCZZ --source msstore` comes back empty — a winget
+quirk, not a missing listing.)
+
 Prefer to click? [apps.microsoft.com/detail/9N4KKBRRSCZZ](https://apps.microsoft.com/detail/9N4KKBRRSCZZ),
 or paste `ms-windows-store://pdp/?productid=9N4KKBRRSCZZ` into Run (Win+R) to open the Store app
 straight away without the web page.
 
-**Installer** — [aetox-amd64-installer.exe](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe) (33.6 MB)
+**Installer** — [aetox-amd64-installer.exe](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe) (34.6 MB)
 
 Installs into Program Files with a Start menu entry. It carries its own files and nothing else:
 Tesseract, poppler, ffmpeg and the speech model are fetched later by the app itself, and only for a
@@ -179,6 +222,18 @@ proceeding.
 A verdict cleared with Microsoft applies to one file, and the next release is a different file, so
 it can come back until code signing exists. The portable zip is the way past it in the meantime.
 
+**The app opens but every provider list is empty, and the engine card says `ไม่พบ aetox-engine.exe`.**
+The same verdict, aimed at the second file in the install folder: on 2026-09-15 Defender's cloud
+model quarantined `aetox-engine.exe` from v1.7.1 as `Trojan:Script/Wacatac.C!ml`, five hours into a
+session, on a file that had not changed (`Trojan:Script/…` is the family Defender uses for an
+unsigned executable that starts shells — the engine does, on your behalf, which is its job). The app
+cannot answer anything without its engine, so the lists go blank. Open **Windows Security →
+Protection history**, find the entry, **Restore** and then **Allow on device** — Restore alone puts
+the file back for the next scan to take again — then press *เริ่มใหม่* on the engine card, or
+reinstall. Since v1.7.2 the engine carries a version block, manifest and icon like `aetox.exe`,
+`checksums.txt` lists the hash of each exe on its own so a restored file can be checked against a
+signed line, and that card names the likely cause instead of just the missing file.
+
 Releases *are* signed: an ed25519 public key is compiled into the binary and the updater verifies
 the signature over `checksums.txt` before it trusts a single hash. An empty or wrong key refuses
 the update rather than falling back.
@@ -195,8 +250,7 @@ the Windows window over `ssh`.
 not 1.0.0"* — that criterion was **changed by the owner, not met**. Holding a stable Windows build
 behind a browser pane and an at-rest keystore that do not exist yet on the other two helps nobody
 already running it. Linux and macOS ship under the same bar, in a later release. See
-[PLATFORM-SUPPORT.md](PLATFORM-SUPPORT.md) for where the port actually stands, and
-[DECISIONS §109](docs/DECISIONS.md) for why the bar moved.
+[PLATFORM-SUPPORT.md](PLATFORM-SUPPORT.md) for where the port actually stands.
 
 <details>
 <summary>Build it yourself</summary>
@@ -382,12 +436,10 @@ are managed under ตั้งค่า › ทีม; the chip beside the compo
 it hires from.
 
 Agents never call each other. The star has one centre; multi-step work is a conveyor through the
-assistant, and the baton is a file path rather than the content. Separately, four **sub-agents**
-(`explore`, `general`, `reviewer`, `tester`) are internal helpers — a fixed set, not extensible,
+assistant, and the baton is a file path rather than the content. Separately, two **sub-agents**
+(`explore`, `general`) are internal helpers — a fixed set, not extensible,
 deliberately, though since 1.6.0 you may tune one: its model and provider, its prompt, its step
-ceiling and its look, never what it can reach. The last two **cannot write anything at all, on
-purpose**: a reviewer that fixes what it finds is a second author, and then nobody is left reading;
-a tester that repairs the test it just ran is a test nobody watched fail.
+ceiling and its look, never what it can reach.
 
 ## What it learns, and what you approve
 
@@ -479,12 +531,12 @@ A tool count is not a reason to use anything, which is why this is down here.
 
 **35 tools reach the model on a fresh install** — 34 from the engine and `browser`, which the
 window lends across the wire (§248); `computer` joins only once you switch it on. A default
-assistant session carries fewer, because a desk narrows the set. They cost about 10,300 tokens on
-every request before you have typed anything — the engine's 34 are about 9,500, against a ceiling
+assistant session carries fewer, because a desk narrows the set. They cost about 10,700 tokens on
+every request before you have typed anything — the engine's 34 are about 9,900, against a ceiling
 of 10,400 tokens and 48 tools that a test enforces on that block, and the browser's definition is
 another ~830. Twelve of them are **packed** — one name in the block, several verbs behind it —
 which is why the list got shorter in v1.5.15 without anything being taken away. Re-measured
-2026-09-13 on v1.6.1.
+2026-09-17 on v1.7.2.
 
 | Group | Tools |
 |:---|:---|
@@ -493,8 +545,8 @@ which is why the list got shorter in v1.5.15 without anything being taken away. 
 | **Handing back files** | `asset_find` `doc_write` `sheet_write` `video` *(new · check · render)* |
 | **Reading media** | `image_make` `media_read` *(image · video · audio)* `pdf_read` `video_project` |
 | **Web and automation** | `browser` *(open · read · click · type · wait · back · scroll · capture · tabs · dialog · console · network · hover · drag · key · upload)* `media_fetch` `web_fetch` `web_search` |
-| **Code work** | `codebase` *(errors · symbol · map)* `github` *(search · repo_summary · list_files · read_file)* `pr` *(list · read · checks · create · comment)* `rename` |
-| **How the assistant works** | `ask_user` `calc` `desk` *(open · list · close · focus)* `memory` `plan_mode` `plan` *(write · amend · read · step · report)* `plugin_install` `session_search` `skill_view` `skills_list` `task` *(start · collect · answer · plan)* `time` `todo_write` |
+| **Code work** | `codebase` *(errors · symbol · impact · map · trace · design)* `github` *(search · repo_summary · list_files · read_file)* `pr` *(list · read · checks · create · comment)* `rename` |
+| **How the assistant works** | `ask_user` `calc` `desk` *(open · list · close · focus)* `memory` `plan_mode` `plan` *(write · amend · read · step · report)* `plugin_install` `session_search` `skill_view` `task` *(start · collect · answer · message · plan)* `time` `todo_write` |
 
 That table is generated from the registry the model is actually handed
 (`go test ./internal/engine -run TestPrintReadmeToolTable -v`, plus the two the window lends),
@@ -506,16 +558,16 @@ Connecting an automation engine adds one more packed tool — `n8n` *(list · re
 activate)* or `windmill` *(workspaces · list · read · create · update)* — and nothing until then:
 a tool with no account behind it is withheld rather than shown and refused.
 
-**Growth goes where it costs nothing.** A skill is a markdown document, not a tool: `skills_list`
-returns one line each and `skill_view` returns one body, so installing three hundred leaves the
-tool block exactly the same size. MCP servers are placed per desk and per agent, so a server added
+**Growth goes where it costs nothing.** A skill is a markdown document, not a tool: the prompt's skill index
+carries the names, grouped by area, and `skill_view` returns one body, so installing three hundred
+leaves the tool block exactly the same size. MCP servers are placed per desk and per agent, so a server added
 for video work is absent from an ordinary conversation — not hidden from the model, absent. Office
 writers reach only the specialized desk, so the assistant delegates for a `.pptx` rather than
 carrying three tools it rarely needs.
 
-**24 providers, and the window shows every one** — OpenAI · OpenAI-compatible (your own endpoint) ·
+**25 providers, and the window shows every one** — OpenAI · OpenAI-compatible (your own endpoint) ·
 Anthropic · Gemini · DeepSeek · Qwen · Z.ai · OpenRouter · Codex · Groq · Mistral · Kimi ·
-MiniMax · xAI · ThaiLLM · ModelScope · NVIDIA · GitHub Copilot · Kilo · Ollama Cloud ·
+MiniMax · xAI · Meta · ThaiLLM · ModelScope · NVIDIA · GitHub Copilot · Kilo · Ollama Cloud ·
 OpenCode Zen · OpenCode Go · LM Studio · Ollama · and the built-in `aetox`. ChatGPT (Codex), GitHub Copilot and OpenRouter
 sign in; the rest take an API key or a local server address. The catalogue and the picker used to disagree; they no longer
 do, because a provider the engine knows and the window hides is one nobody can reach.
@@ -565,23 +617,23 @@ withholding tools turns an agent into a chat window, so doubt is resolved in one
 
 ## Measured, not claimed
 
-The rules are in [BENCHMARK.md](BENCHMARK.md), and its one standing rule is that a number which
+The rules are in [BENCHMARK.md](docs/reports/BENCHMARK.md), and its one standing rule is that a number which
 has not passed them may not appear here or on the website.
 
 > The dangerous number is the flattering one, because nobody audits a figure that makes them look
 > good.
 
-**Aetox.** The two size rows and the two test counts were re-measured 2026-09-13 on v1.6.1;
+**Aetox.** The two size rows and the two test counts were re-measured 2026-09-17 on v1.7.2;
 assembling a turn is from 2026-08-13, and the ⁽ᵈ⁾ rows from 2026-07-27 on v0.9.2 — before the
 engine became a process of its own, so the process count in particular is one short of today.
 
 | | |
 |:---|---:|
-| What you download | 33.6 MB installer |
-| What ends up on disk | **80.8 MB**, two files — `aetox.exe` 49.2 MB + `aetox-engine.exe` 31.7 MB |
+| What you download | 34.6 MB installer |
+| What ends up on disk | **83.4 MB**, two files — `aetox.exe` 50.9 MB + `aetox-engine.exe` 32.5 MB |
 | Assembling a turn | 0.32 ms · 174.9 KB allocated |
-| Go tests | 3,371 across 56 packages, 0 failures |
-| Frontend tests | 1,747 across 175 files, 0 failures |
+| Go tests | 3,648 across 62 packages, 0 failures |
+| Frontend tests | 2,106 across 205 files, 0 failures |
 | First launch (cold) | 1.77 s ⁽ᵈ⁾ |
 | Every launch after | 0.53 s ⁽ᵈ⁾ |
 | RAM committed | 252 MB ⁽ᵈ⁾ |
@@ -594,7 +646,7 @@ rules on the day — which is the whole difference between an old number and a b
 Two things that number honestly. Assembling a turn was 0.12 ms and 96.2 KB when the block held 27
 tools; it is 0.32 ms and 174.9 KB now that it holds more. That is a real regression, and it is
 still three ten-thousandths of a second — the time you wait is the model thinking. And the disk
-figure went from 48.5 MB in one file to 80.8 MB in two: the engine is now its own executable, and
+figure went from 48.5 MB in one file to 83.4 MB in two: the engine is now its own executable, and
 the window still links the engine package for its types and forwarders, so the split added a
 binary without yet shrinking the first one. That is a real cost of §248 and it is written down as
 one. The Go suite is green on Windows; **CI on Linux and macOS is red** — 16 tests on 2026-09-13,
@@ -611,7 +663,7 @@ that they no longer hide the platform that is done.
 | First launch (cold) | 1.77 s | 2.12 s |
 | Every launch after | 0.53 s | 0.53 s |
 | RAM committed | 252 MB | 471 MB |
-| Disk | **80.8 MB** | 419 MB |
+| Disk | **83.4 MB** | 419 MB |
 
 Both columns except Aetox's disk figure were measured 2026-07-27 on the same machine under the same
 rules, and neither has been re-measured — Zed is no longer installed here. A tie on warm launch with
@@ -626,8 +678,8 @@ handed a second browser to store.
 <summary>How these were measured, and what does not qualify</summary>
 
 **Disk** — download [the portable zip](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-windows-amd64-portable.zip),
-unpack it, and add up the two files inside: `aetox.exe` 51,554,816 bytes and `aetox-engine.exe`
-33,197,568 bytes, 84,752,384 together. Anyone can reproduce it in a minute. It replaces the 48.5 MB
+unpack it, and add up the two files inside: `aetox.exe` 53,339,136 bytes and `aetox-engine.exe`
+34,120,192 bytes, 87,459,328 together. Anyone can reproduce it in a minute. It replaces the 48.5 MB
 single-file figure measured on 2026-08-25 on v1.5.7, which was correct then and is not now. Competitor sizes are measured after install from the install folder, never
 taken from a download page, and never from a folder holding user profiles or caches.
 
@@ -645,48 +697,46 @@ date-stamped, because the rule above does not have an exception for numbers we w
 
 </details>
 
-## Status — v1.7.0
+## Status — v1.8.1
 
-The core is in place. [Release notes](docs/release-notes/v1.7.0.md) ·
-[roadmap](ROADMAP.md) · [architecture](ARCHITECTURE.md).
+The core is in place. [Release notes](docs/release-notes/v1.8.1.md) ·
+[roadmap](ROADMAP.md).
 
 Three things it does today that are worth knowing about:
 
-- **It introduces itself, and the company has three ranks.** Between picking a language and
-  connecting a model, a nine-scene tour (รู้จักกับ Aetox) shows the window's four rooms, the two
-  heads, how memory is proposed rather than written, where every byte stays, and how a team hands
-  work out — replayable from ตั้งค่า › เกี่ยวกับ. The heads (ผู้ช่วย and โค้ด) and every
-  พนักงาน and ลูกมือ share one profile page: a face with its rank on the corner, a name you can
-  change, three files that answer who it is / how it thinks / what the desk does, and a memory
-  file of its own — what the work taught *it*, kept apart from what it knows about you.
-- **The console is the third screen, and the dials move under a running turn.** `aetox chat`
-  sits at the coding desk on the same engine the window uses, with `--report` for one JSON line
-  per turn. The thinking level and the approval mode now change mid-turn — the next round of the
-  tool loop reads them, and so does every helper hired after the press. วางแผน hears one voice
-  (its prompt halved), and pressing the plan's button hands มุ่งเป้า one skill with the run's
-  first message instead of rebuilding the engine. A stretch of tool calls folds when it is over,
-  not each time it goes quiet.
-- **The shelf reads its own skills, and grew.** `internal/skilllint` and `aetox skill lint` read
-  a skill before a person judges it, and every skill the app drafts passes the same gate.
-  New on the shelf: `aetox-security` (an attack path at a line, or it is advice),
-  `aetox-performance` (a number at a line, past the noise), `aetox-orient`, the eight cores of
-  obra/superpowers, motion and web-3d, idea-to-architecture, a rewritten code review, and
-  `codebase design`, which spots the tells of UI written by habit. The capability room holds MCP ·
-  skills · built-in tools · computer use · connections · command sets, whole.
+- **The voice plays from Aetox itself, and reads what the screen shows.** Pieces are decoded by
+  Media Foundation and rendered through WASAPI from Aetox's own process, on the speaker you pick
+  from Windows' own list — so the volume mixer says Aetox, not the WebView2 icon. What it reads is
+  the rendered answer: drawings, code blocks, equations and panels are silent, a path says its file
+  name, an address says its host, and a heading or a table row ends its own line.
+- **The MCP library has 88 rows, every row wears its mark, and a key is a field.** Every row was
+  spawned or sent a real `initialize` before it went on the shelf; tool counts and tokens are
+  measured. A server that needs a key gets one field per variable, a button to the page that
+  issues it, and an amber "no key yet" on a saved row that is still blank; a sign-in that fails
+  says so on its own row with a retry. The ads/content line (LINE OA, Google Ads, Analytics,
+  Semrush, Ahrefs, Buffer, WordPress, Klaviyo, TikTok Ads) and databases (Postgres/MySQL/SQL
+  Server, MongoDB, Redis) are on the shelf.
+- **Agents answer the head's three questions, and the ads/content desk reads and posts to Meta.**
+  Every agent has `identity.md` · `thinking.md` beside `AGENT.md`; the nine bundled ones answer
+  inside the binary and your files override them. The ads worker reads a Meta ad account on a
+  token from your own app; the content agent posts to a Facebook page (post, photo, video, Reel,
+  scheduled) and a public post asks first in every mode. A connection row says when its token
+  expires. The avatar steps aside on its own when it covers text or code.
 
 **Next** — one provider chain that switches accounts when a plan window is spent · external
-agent programs as engines (§258) · a same-state RAM round for every app in the tour's last scene
-(the rows say which numbers are ours and which are public reports until then).
+agent programs as engines (§258) · the personal secretary on the user's own Apps Script bridge ·
+a same-state RAM round for every app in the tour's last scene.
 
 ## Documentation
 
-[Architecture](ARCHITECTURE.md) · [Every decision, and why](docs/DECISIONS.md) ·
-[What this company is](COMPANY.md) · [How a screen is designed](DESIGN.md) ·
-[Benchmark rules](BENCHMARK.md) ·
-[Where every published number lives](docs/PUBLISHED-NUMBERS.md) ·
-[How a release is cut](docs/RELEASING.md) ·
-[Platform support](PLATFORM-SUPPORT.md) · [Roadmap](ROADMAP.md) ·
-[Automation engines](docs/AUTOMATION-ENGINES.md)
+Measurements and test results live in [docs/reports/](docs/reports/) — [Benchmark rules](docs/reports/BENCHMARK.md) ·
+[Test report by module](docs/reports/TEST-REPORT.md) · [Token audit](docs/reports/TOKEN-AUDIT.md) ·
+[Where every published number lives](docs/reports/PUBLISHED-NUMBERS.md) ·
+[Research & reasoning evaluation](docs/reports/aetox-research-reasoning-evaluation.md) ·
+[Harness database pilot](docs/reports/harness-database-pilot-2026-09-18.md).
+Using and shipping: [First-run tour](docs/FIRST-RUN-TOUR.md) · [How a release is cut](docs/RELEASING.md) ·
+[Platform support](PLATFORM-SUPPORT.md) · [Roadmap](ROADMAP.md).
+Architecture, decision records and design standards are kept off this repository (`docs/internal/`, not published).
 
 ## Community
 

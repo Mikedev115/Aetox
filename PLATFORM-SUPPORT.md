@@ -1,7 +1,7 @@
 # Platform Support — สถานะพอร์ต Linux/macOS · อัปเดต 2026-07-27
 
 > **จุดยืน (owner, 2026-07-27):** กลับข้าง — จาก "บันทึกไว้เฉยๆ" เป็น **"ทำจริง เดสก์ท็อปก่อน"** เป้าหมาย v0.7.0
-> Decision section: [ARCHITECTURE.md §48](ARCHITECTURE.md) · จุดยืนเดิม "Windows first, ไม่ไล่ตาม" อยู่ที่ §29 ถูก §48 แทนแล้ว
+> Decision section: [ARCHITECTURE.md §48](docs/internal/ARCHITECTURE.md) · จุดยืนเดิม "Windows first, ไม่ไล่ตาม" อยู่ที่ §29 ถูก §48 แทนแล้ว
 >
 > **เอกสารนี้คือจุดตั้งต้นสำหรับคนที่มาต่องานนี้** อ่านจบแล้วรู้ว่าอยู่ตรงไหน ทำอะไรต่อ และห้ามทำอะไร
 
@@ -20,6 +20,11 @@
   13–20 วิ) ทั้งคู่แดงต่อเนื่องมาตั้งแต่อย่างน้อย 4 ส.ค. **ยังไม่มีใครแก้ เพราะวินิจฉัยจาก
   เครื่อง Windows ได้แค่เดา** — ต้องมีคนที่มี Mac จริงมารับ นี่คือรายการแรกของงานพอร์ต macOS
   ไม่ใช่ 3b
+  > **แก้ 18 ก.ย. 2026:** job `unix` ถูกถอดออกจาก [ci.yml](.github/workflows/ci.yml) แล้ว
+  > (owner's call) บรรทัดข้างบนจึงเป็นหลักฐานจากรอบเดือน ส.ค. 2026 ไม่ใช่สิ่งที่ CI ตรวจให้
+  > ทุกวันนี้อีกแล้ว ผลที่ตามมาคือ **ไม่มีที่ไหนรัน `-race` อีกเลย** (verify.sh ข้าม stage
+  > `race` เพราะเครื่องเจ้าของไม่มี C compiler) และ **ไม่มีที่ไหนคอมไพล์หรือเทสต์ไฟล์ `!windows`**
+  > เหลือเพียง cross-build ของ engine บน Windows ใน ci.yml ซึ่งคอมไพล์อย่างเดียว ไม่รันเทสต์
 
 ## ตารางสถานะ
 
@@ -33,6 +38,7 @@
 
 > **ระวังการอ่านตาราง (แก้ 7 ส.ค. 2026):** ✅ ของ Linux = *รันจริงบนเคอร์เนล Linux แล้วผ่าน* ·
 > macOS **รันจริงแล้วบน `macos-latest` ใน CI แต่ยังไม่ผ่านครบ** — เทสต์แดงค้างสองตัว (ดูสรุปข้างบน)
+> **และตั้งแต่ 18 ก.ย. 2026 CI ไม่มี job นี้แล้ว** — ช่องที่บอก "รันแล้ว" ในตารางนี้จึงเป็นสถานะ ณ เดือน ส.ค. 2026
 > ช่อง ⚠️ ในตารางล่างจึงหมายถึง "รันแล้ว ยังไม่เขียว" ไม่ใช่ "ยังไม่เคยรัน" อีกต่อไป ·
 > เครื่องเจ้าของยังไม่มี Mac และรัน macOS ใน VM บนเครื่องที่ไม่ใช่ Apple ผิดสัญญาอนุญาต
 > จึงแก้ได้เฉพาะผ่าน CI หรือผ่านคนที่มีเครื่องจริง
@@ -68,7 +74,7 @@
 
 `_unix.go` ต้องเขียน `//go:build unix` เอง เพราะ Go ไม่ถือว่า `_unix` เป็นคำลงท้ายพิเศษเหมือน `_windows`/`_linux`/`_darwin` — ใช้ `unix` แทน `!windows` (แบบที่ `internal/proc` ใช้) เพราะตรงกับชื่อไฟล์และไม่ลากไป js/wasm กับ plan9 ที่ `creack/pty` ไม่รองรับ
 
-**การพอร์ต `computer` ไม่ใช่การพอร์ตไฟล์** UI Automation เป็น API ของ Windows และของที่เทียบเท่าบน macOS กับ Linux เป็นคนละตัวที่มี permission model ของตัวเอง (macOS ต้องได้ Accessibility กับ Screen Recording ในการตั้งค่าระบบก่อนถึงจะทำอะไรได้เลย) ครึ่งที่ไม่มี Win32 — pack, ด่าน, ตาราง ref, การจำแนกความล้มเหลว — คอมไพล์และทดสอบได้ทุกแพลตฟอร์มอยู่แล้ว งานที่เหลือจึงเป็นการเขียน `reach*` กับ `overlay` ของ OS นั้น ไม่ใช่การรื้อ ดู [docs/architecture/computer-use-2026-09-07.md](docs/architecture/computer-use-2026-09-07.md) §5
+**การพอร์ต `computer` ไม่ใช่การพอร์ตไฟล์** UI Automation เป็น API ของ Windows และของที่เทียบเท่าบน macOS กับ Linux เป็นคนละตัวที่มี permission model ของตัวเอง (macOS ต้องได้ Accessibility กับ Screen Recording ในการตั้งค่าระบบก่อนถึงจะทำอะไรได้เลย) ครึ่งที่ไม่มี Win32 — pack, ด่าน, ตาราง ref, การจำแนกความล้มเหลว — คอมไพล์และทดสอบได้ทุกแพลตฟอร์มอยู่แล้ว งานที่เหลือจึงเป็นการเขียน `reach*` กับ `overlay` ของ OS นั้น ไม่ใช่การรื้อ ดู [docs/internal/architecture/computer-use-2026-09-07.md](docs/internal/architecture/computer-use-2026-09-07.md) §5
 
 ## ทำเฟส 3a/3b ยังไง — ต้อง implement แค่ 2 interface
 
@@ -98,7 +104,7 @@ type tabView interface {
 
 1. **`do()` ต้อง async เสมอ** — `g_idle_add` / `dispatch_async` **ห้าม `dispatch_sync`** เพราะ `browserSnapshot` เรียก `do()` แล้วบล็อกรอ channel 5 วินาที ถ้า sync และถูกเรียกจาก main thread = **deadlock ที่ path ซึ่ง AI ใช้อ่านหน้าเว็บ** unit test จับไม่ได้ (§48 Decision 3)
 2. **`bridgePost` มีอยู่แล้วใน `browser_other.go`** = `window.webkit.messageHandlers.aetox.postMessage` ถูกต้องสำหรับ WebKit ทั้งสองตัว ชื่อ handler ต้องตรงกับที่ลงทะเบียนกับ `WebKitUserContentManager` / `WKUserContentController`
-3. **ยึด 5 กฎท้าย [docs/architecture/native-browser-embedding-2026-07-24.md](docs/architecture/native-browser-embedding-2026-07-24.md)** — เขียนจากรอบดีบักจริงที่ได้ failure catalog 7 ข้อ ไม่ใช่ทฤษฎี โดยเฉพาะกฎข้อ 1 (ห้ามหาหน้าต่างตัวเองจาก global)
+3. **ยึด 5 กฎท้าย [docs/internal/architecture/native-browser-embedding-2026-07-24.md](docs/internal/architecture/native-browser-embedding-2026-07-24.md)** — เขียนจากรอบดีบักจริงที่ได้ failure catalog 7 ข้อ ไม่ใช่ทฤษฎี โดยเฉพาะกฎข้อ 1 (ห้ามหาหน้าต่างตัวเองจาก global)
 
 Linux ต้องใช้ `-tags webkit2_41` — Ubuntu 24.04 ไม่มี `libwebkit2gtk-4.0-dev` แล้ว (วัดแล้ว)
 
@@ -149,7 +155,7 @@ docker run --rm -v "E:/Aetox/Aetox:/repo:ro" -v aetox-gomod:/go/pkg/mod golang:1
 
 ## การจัดจำหน่าย — ตัวเลขที่ต้องปกป้อง
 
-[BENCHMARK.md](BENCHMARK.md) §4 ขายว่า Aetox **80.8 MB** (สองไฟล์ตั้งแต่ 1.6.0) เล็กกว่าคู่แข่ง 2–35 เท่า ด้วยเหตุผลว่า *ใช้ webview ที่ OS มีอยู่แล้ว ไม่ได้แบก Chromium มาเอง* — เหตุผลนั้นยังจริงบน macOS เสมอ แต่**บน Linux ขึ้นกับวิธีแพ็ก**:
+[BENCHMARK.md](docs/reports/BENCHMARK.md) §4 วัด Aetox v1.7.2 ได้ **83.4 MB** (สองไฟล์ตั้งแต่ 1.6.0) เล็กกว่าคู่แข่ง 2–34 เท่า ด้วยเหตุผลว่า *ใช้ webview ที่ OS มีอยู่แล้ว ไม่ได้แบก Chromium มาเอง* — เหตุผลนั้นยังจริงบน macOS เสมอ แต่**บน Linux ขึ้นกับวิธีแพ็ก**:
 
 | แบบ | ขนาด | สรุป |
 |:---|:---|:---|
