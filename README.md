@@ -35,11 +35,11 @@
 > Microsoft Store keep working exactly as before.
 >
 > **Why 1.7.0 and not 1.8.0.** The source was open through v1.8.0 for one day (20–21
-> September 2026) and was then rolled back. What arrived between 1.7.0 and 1.8.0 — the
-> engine split from the window and talking to it over a socket, MCP tools that became a
-> shelf instead of a tool block resent every turn, an editor with no extension market, the
-> context handling that reaches a 97% cache hit — is the architectural layer that makes
-> Aetox as cheap to run as it is. From the outside it looks like any other agent app; the
+> September 2026) and was then rolled back. What arrived between 1.7.0 and 1.8.0 (222
+> commits in five days) — MCP tools that became a shelf instead of a tool block resent
+> every turn, an editor with a language server behind it and no extension market, a
+> session context written every turn and handed back on reopen, a window nearly half as
+> heavy at rest — is the architectural layer that makes Aetox as cheap to run as it is. From the outside it looks like any other agent app; the
 > inside is where the author spent the most design time, and is the part he chose to keep.
 > Not closed because anyone did anything, but because it is the most valuable part of the
 > work, and he is the one person still building it.
