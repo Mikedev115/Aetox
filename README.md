@@ -122,7 +122,7 @@ both; the language switch is in Settings and in the first-run wizard. This READM
 - **Capability comes from the app, not from model parameters** — Thai/English OCR and offline
   speech-to-text are tools the app drives, so a 9B/35B model on your own GPU does these jobs as
   well as a frontier one.
-- **25 model providers** — cloud (OpenAI, Anthropic, Gemini, DeepSeek, Groq, and more) and local
+- **27 model providers** — cloud (OpenAI, Anthropic, Gemini, DeepSeek, Groq, and more) and local
   (LM Studio, Ollama), switchable mid-conversation with context intact. Full list under
   [Everything it can do](#everything-it-can-do).
 - **The engine is a process of its own, and it can run on another machine.** Since 1.6.0 the
@@ -193,6 +193,20 @@ scoop install https://raw.githubusercontent.com/Mikedev115/Aetox/main/scoop/aeto
 unpack, run `aetox.exe`. Since 1.6.0 the zip holds two files — `aetox.exe` and `aetox-engine.exe`
 — and they stay together. This is the only channel that can update itself in place.
 
+**In the terminal** — `aetox` in any folder opens the Code desk full-screen: type the task, watch the
+tool calls land above the input, answer an approval card in place. A separate download, not part of
+the app above, so the installer and the Store package stay exactly as they are:
+
+```powershell
+scoop install https://raw.githubusercontent.com/Mikedev115/Aetox/main/scoop/aetox-cli.json
+```
+
+or [aetox-cli-windows-amd64.zip](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-windows-amd64.zip)
+— unpack anywhere and add that folder to `PATH`. When the app is installed on the same machine the
+terminal uses the app's engine and shares its keys, chats and memory; without the app it runs the
+engine that comes in the zip. `aetox chat "task"` is one turn with the answer on stdout, for
+scripts; `aetox --plain` is the line-by-line console; `/help` inside lists every command.
+
 > **Pick one channel and stay on it.** Windows gives a packaged app its own data folder, so a Store
 > install and an installer install are two separate Aetoxes on one machine, with separate settings,
 > history, memory and keys. Installing both is the quickest way to wonder where your chats went.
@@ -257,6 +271,7 @@ already running it. Linux and macOS ship under the same bar, in a later release.
 
 ```powershell
 go build -o desktop/build/bin/aetox-engine.exe ./cmd/aetox-engine   # the engine, beside the window
+go build ./cmd/aetox                                                 # the terminal console (runs the engine in-process when none sits beside it)
 cd desktop
 wails build          # → desktop/build/bin/aetox.exe
 wails build -nsis    # with the installer
@@ -565,9 +580,9 @@ for video work is absent from an ordinary conversation — not hidden from the m
 writers reach only the specialized desk, so the assistant delegates for a `.pptx` rather than
 carrying three tools it rarely needs.
 
-**25 providers, and the window shows every one** — OpenAI · OpenAI-compatible (your own endpoint) ·
+**27 providers, and the window shows every one** — OpenAI · OpenAI-compatible (your own endpoint) ·
 Anthropic · Gemini · DeepSeek · Qwen · Z.ai · OpenRouter · Codex · Groq · Mistral · Kimi ·
-MiniMax · xAI · Meta · ThaiLLM · ModelScope · NVIDIA · GitHub Copilot · Kilo · Ollama Cloud ·
+MiniMax · Xiaomi MiMo · Xiaomi MiMo Token Plan · xAI · Meta · ThaiLLM · ModelScope · NVIDIA · GitHub Copilot · Kilo · Ollama Cloud ·
 OpenCode Zen · OpenCode Go · LM Studio · Ollama · and the built-in `aetox`. ChatGPT (Codex), GitHub Copilot and OpenRouter
 sign in; the rest take an API key or a local server address. The catalogue and the picker used to disagree; they no longer
 do, because a provider the engine knows and the window hides is one nobody can reach.
@@ -697,31 +712,59 @@ date-stamped, because the rule above does not have an exception for numbers we w
 
 </details>
 
-## Status — v1.8.1
+### What the skills are worth
 
-The core is in place. [Release notes](docs/release-notes/v1.8.1.md) ·
+A skill is only worth shipping if the same model does the same job better with it. So the
+question was measured, not argued: the same model (`gpt-6-luna`, `gpt-5.6-terra`), the same 39
+tasks, Aetox with its skills on and with every skill placed off, and Codex CLI and OpenCode on the
+same model beside it. Every task starts from a fresh folder and a fresh data folder, is scored by a
+program rather than a person, and was proven scorable by a reference solution first; the hidden
+tests never enter the folder the model works in. Task sources: SlopCodeBench, SWE-bench
+Multilingual, Web-Bench, CWEval, SlidesBench, Terminal-Bench (adapted), and our own where no public
+set covers the job (Thai tax invoices, PromptPay, an outage with only the logs).
+
+Only differences that held on every repeat are quoted here:
+
+| Task (runs) | Skill | Skills on | Skills off |
+|:---|:---|---:|---:|
+| Thai slide deck, Luna (3) | `aetox-slides` | **98** | 49 |
+| Thai slide deck, Terra (2) | `aetox-slides` | **97** | 29 |
+| Thai tax invoice, Luna (3) | `aetox-th-locale` | **100** | 94 |
+| Thai tax invoice, Terra (2) | `aetox-th-locale` | **100** | 85 |
+| Save a `/command` preset (6) | `aetox` | **5 of 6** | 0 of 6 |
+
+And what did not move, stated with the same weight: a design-token page (Terra), a leaked-token cleanup,
+closing a branch and three unclear functions scored the same with skills on and off; a safe
+database migration scored slightly *lower* with the skill (Luna 83 vs 92, Terra 88 vs 100). Across
+all 35 scorable tasks, run once each on Luna, skills on scored 81 and off 77. Against the other
+harnesses, on 19 shared tasks run once: on Luna Aetox 86, OpenCode 82, Codex 75 — but Aetox with
+skills off also scored 86, so that lead is the harness, not the skills; on Terra Aetox 85, Codex 87,
+OpenCode 91, a loss we have not closed. Every task, scorer, run count, excluded run and changed
+threshold is in [SKILL-BENCH.md](docs/reports/SKILL-BENCH.md).
+
+## Status — v1.9.0
+
+The core is in place. [Release notes](docs/release-notes/v1.9.0.md) ·
 [roadmap](ROADMAP.md).
 
 Three things it does today that are worth knowing about:
 
-- **The voice plays from Aetox itself, and reads what the screen shows.** Pieces are decoded by
-  Media Foundation and rendered through WASAPI from Aetox's own process, on the speaker you pick
-  from Windows' own list — so the volume mixer says Aetox, not the WebView2 icon. What it reads is
-  the rendered answer: drawings, code blocks, equations and panels are silent, a path says its file
-  name, an address says its host, and a heading or a table row ends its own line.
-- **The MCP library has 88 rows, every row wears its mark, and a key is a field.** Every row was
-  spawned or sent a real `initialize` before it went on the shelf; tool counts and tokens are
-  measured. A server that needs a key gets one field per variable, a button to the page that
-  issues it, and an amber "no key yet" on a saved row that is still blank; a sign-in that fails
-  says so on its own row with a retry. The ads/content line (LINE OA, Google Ads, Analytics,
-  Semrush, Ahrefs, Buffer, WordPress, Klaviyo, TikTok Ads) and databases (Postgres/MySQL/SQL
-  Server, MongoDB, Redis) are on the shelf.
-- **Agents answer the head's three questions, and the ads/content desk reads and posts to Meta.**
-  Every agent has `identity.md` · `thinking.md` beside `AGENT.md`; the nine bundled ones answer
-  inside the binary and your files override them. The ads worker reads a Meta ad account on a
-  token from your own app; the content agent posts to a Facebook page (post, photo, video, Reel,
-  scheduled) and a public post asks first in every mode. A connection row says when its token
-  expires. The avatar steps aside on its own when it covers text or code.
+- **The Team door is an organisation you talk to through one secretary.** Agents, teams,
+  departments and companies each have a head that thinks for itself; the secretary takes the
+  order, decides which rung it belongs to and hands it over by name. Every piece of delegated work
+  is one tree in the chat (who got it, what they are doing now, what came back), a team's output is
+  real files in its folder, and saved workflows walk step by step through the teams you named. The
+  office draws it all: a 3D campus or tower on your own clock, and a phone on the :8317 page that
+  shows the chat the window has open.
+- **You install an MCP server or a skill by telling the AI.** Paste a link, a config block, a
+  `claude mcp add` line or just a name; Aetox picks the official server from the registry, checks
+  whether it needs OAuth or a key, and shows a card that a person presses at every approval
+  level. The installer is Aetox's own side room beside the MCP and skills pages.
+- **Every skill on the shelf was measured.** The shelf went from 43 to 24, and every new or tuned
+  skill passes a gate that runs it off, natural and forced open before it is kept, re-worded or
+  deleted. Results, including what did not move, are in
+  [SKILL-BENCH.md](docs/reports/SKILL-BENCH.md). A console build of the coding desk
+  (`aetox-cli-windows-amd64.zip`) ships beside the app.
 
 **Next** — one provider chain that switches accounts when a plan window is spent · external
 agent programs as engines (§258) · the personal secretary on the user's own Apps Script bridge ·
@@ -733,7 +776,8 @@ Measurements and test results live in [docs/reports/](docs/reports/) — [Benchm
 [Test report by module](docs/reports/TEST-REPORT.md) · [Token audit](docs/reports/TOKEN-AUDIT.md) ·
 [Where every published number lives](docs/reports/PUBLISHED-NUMBERS.md) ·
 [Research & reasoning evaluation](docs/reports/aetox-research-reasoning-evaluation.md) ·
-[Harness database pilot](docs/reports/harness-database-pilot-2026-09-18.md).
+[Harness database pilot](docs/reports/harness-database-pilot-2026-09-18.md) ·
+[What the skills are worth](docs/reports/SKILL-BENCH.md).
 Using and shipping: [First-run tour](docs/FIRST-RUN-TOUR.md) · [How a release is cut](docs/RELEASING.md) ·
 [Platform support](PLATFORM-SUPPORT.md) · [Roadmap](ROADMAP.md).
 Architecture, decision records and design standards are kept off this repository (`docs/internal/`, not published).

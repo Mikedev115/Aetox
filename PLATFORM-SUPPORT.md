@@ -31,7 +31,7 @@
 | ส่วน | Windows | Linux | macOS |
 |:---|:---|:---|:---|
 | `internal/` (engine, tools, providers) | ✅ ใช้จริง | ✅ **เทสต์ + race ผ่านบนเคอร์เนลจริง** | ⚠️ type-check ผ่าน ยังไม่เคยรัน |
-| `cmd/aetox` (CLI) | ✅ ใช้จริง | ✅ **เทสต์ + race ผ่าน** | ⚠️ type-check ผ่าน ยังไม่เคยรัน |
+| `cmd/aetox` (CLI) + `internal/tui` (จอเต็ม) | ✅ ใช้จริง · จอเต็มทดสอบผ่าน ConPTY และตัวจำลองเทอร์มินัล | ✅ **เทสต์ + race ผ่าน** (จอเต็มยังไม่เคยรันบนเครื่องจริง) | ⚠️ type-check ผ่าน ยังไม่เคยรัน |
 | `desktop/` ทั้งแพ็กเกจ | ✅ ใช้จริง | ✅ **`go test ./...` + `-race` ผ่าน** | ⚠️ type-check ผ่าน ยังไม่เคยรัน |
 | `desktop/` แท็บ browser | ✅ ใช้จริง | ⏳ stub (เฟส 3a) | ⏳ stub (เฟส 3b) |
 | binary ภายนอก (tesseract, ffmpeg) | ✅ | ✅ มีข้อความติดตั้งแยก OS อยู่แล้ว | ✅ auto-install ผ่าน brew อยู่แล้ว |

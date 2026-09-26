@@ -56,6 +56,7 @@ Microsoft Partner Center ห้ามสร้าง installer variant เพิ
 | แบบพกพา (zip) | zip มีทั้งคู่ และตัวอัปเดตในแอปสลับ **ทั้งคู่** ด้วยการ rename ทีละไฟล์ ([internal/update/apply.go](../internal/update/apply.go) `swapPortable`) — แอปที่รันอยู่ยังเป็นรุ่นเก่าจนเปิดใหม่ แล้วค่อยเป็นรุ่นใหม่พร้อมกัน |
 | Microsoft Store (.msix) | แพ็กเกจเดียวมีทั้งคู่ Windows สลับทั้งแพ็กเกจ |
 | Scoop | manifest ชี้ zip เดียวกัน |
+| คอนโซลเทอร์มินัล (`aetox-cli-windows-amd64.zip` · `scoop/aetox-cli.json`) | **ก้อนแยกจากแอป** (§331) — zip มี `aetox.exe` ของคอนโซลกับ `aetox-engine.exe` ไม่อยู่ในตัวติดตั้งหรือแพ็กเกจ Store · ถ้าเครื่องมีแอป คอนโซลใช้เอนจินของแอปแทนตัวใน zip |
 
 สิ่งที่ workflow ตรวจให้ก่อนจะปล่อย: `aetox-engine.exe` ต้องมี version block ที่บอก
 `Aetox <ver>` ตรงกับ `aetox.exe` (ขั้น "the .syso did not link" ใน release.yml ตั้งแต่ 1.7.2)
@@ -196,6 +197,7 @@ gh release download v<ver> -p checksums.txt -D /tmp/rel --repo Mikedev115/Aetox
 ```
 
 เอาบรรทัดของ `aetox-windows-amd64-portable.zip` ไปใส่ช่อง `hash` ใน `scoop/aetox.json`
+และบรรทัดของ `aetox-cli-windows-amd64.zip` ไปใส่ใน `scoop/aetox-cli.json` (คอนโซล — ก้อนแยกจากแอป §331)
 แล้วคอมมิตตามหนึ่งก้อนบน main → `git push origin main` → `pwsh scripts/publish-public.ps1`
 อีกรอบ เพราะ scoop อ่าน manifest จาก**รีโป public** ไม่ใช่ private
 
@@ -238,6 +240,6 @@ Defender ผูกกับแฮชของไฟล์ รุ่นถัด�
 - [ ] workflow `release` เขียวที่ `Aetox-src`
 - [ ] `gh release edit v<ver> --draft=false --latest --repo Mikedev115/Aetox`
 - [ ] **Store:** ถ้ามี secret `PARTNER_CENTER_*` ครบ workflow ส่งเองแล้ว — เช็ค `msstore submission status 9N4KKBRRSCZZ` · ไม่มีก็อัป `.msix` เอง (`gh run download … --repo Mikedev115/Aetox-src`)
-- [ ] เติม scoop `hash` จาก `checksums.txt` ของรุ่นจริง → คอมมิต → push origin → `publish-public.ps1` อีกรอบ
+- [ ] เติม scoop `hash` จาก `checksums.txt` ของรุ่นจริง (`aetox.json` และ `aetox-cli.json`) → คอมมิต → push origin → `publish-public.ps1` อีกรอบ
 - [ ] วัดขนาดใหม่ และหารตัวคูณใหม่ถ้าขนาดเปลี่ยน
 - [ ] ส่ง zip + installer เข้า WDSI (Software developer) และจด Submission ID ลง release notes

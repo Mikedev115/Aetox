@@ -14,6 +14,9 @@ The list is what is actually linked into the shipped binary and bundled into
 the shipped frontend — not everything `go.mod` or `package.json` mentions.
 The Go table is `go list -deps -f '{{if .Module}}{{.Module.Path}} {{.Module.Version}}{{end}}' ./desktop`;
 it was checked against that command on 2026-08-25 (v1.5.7) and every row matched.
+The console (`cmd/aetox`, shipped as its own `aetox-cli` zip since 25 ก.ย. 2026) adds its screen —
+the Charm libraries (Bubble Tea, Lip Gloss, Bubbles, Glamour) and what they
+link — checked against the same command on `./cmd/aetox` that day.
 
 ---
 
@@ -24,18 +27,39 @@ module cache under `$(go env GOMODCACHE)`.
 
 | Module | Version | Licence |
 |:---|:---|:---|
-| github.com/UserExistsError/conpty | v0.1.4 | MIT |
+| charm.land/bubbles/v2 | v2.2.1 | MIT |
+| charm.land/bubbletea/v2 | v2.0.9 | MIT |
+| charm.land/glamour/v2 | v2.0.1 | MIT |
+| charm.land/lipgloss/v2 | v2.0.6 | MIT |
+| github.com/alecthomas/chroma/v2 | v2.14.0 | MIT |
+| github.com/atotto/clipboard | v0.1.4 | BSD-3-Clause |
+| github.com/aymerick/douceur | v0.2.0 | MIT |
+| github.com/charmbracelet/colorprofile | v0.4.3 | MIT |
+| github.com/charmbracelet/ultraviolet | v0.0.0-20260811164956 | MIT |
+| github.com/charmbracelet/x/ansi | v0.11.8 | MIT |
+| github.com/charmbracelet/x/exp/slice | v0.0.0-20250327172914 | MIT |
+| github.com/charmbracelet/x/term | v0.2.2 | MIT |
+| github.com/charmbracelet/x/windows | v0.2.2 | MIT |
+| github.com/clipperhouse/displaywidth | v0.11.0 | MIT |
+| github.com/clipperhouse/uax29/v2 | v2.7.0 | MIT |
+| github.com/dlclark/regexp2 | v1.11.0 | MIT |
 | github.com/dlclark/regexp2/v2 | v2.5.2 | MIT |
 | github.com/dop251/goja | v0.0.0-20260806115107 | MIT |
 | github.com/dustin/go-humanize | v1.0.1 | MIT |
 | github.com/go-sourcemap/sourcemap | v2.1.3+incompatible | BSD-2-Clause |
 | github.com/google/jsonschema-go | v0.4.3 | MIT |
 | github.com/google/pprof | v0.0.0-20250317173921 | Apache-2.0 |
+| github.com/gorilla/css | v1.0.1 | BSD-3-Clause |
+| github.com/gorilla/websocket | v1.5.3 | BSD-2-Clause |
 | github.com/leaanthony/go-ansi-parser | v1.6.1 | MIT |
 | github.com/leaanthony/slicer | v1.6.0 | MIT |
 | github.com/leaanthony/u | v1.1.1 | MIT |
+| github.com/lucasb-eyer/go-colorful | v1.4.1 | MIT |
 | github.com/mattn/go-isatty | v0.0.20 | MIT |
+| github.com/mattn/go-runewidth | v0.0.27 | MIT |
+| github.com/microcosm-cc/bluemonday | v1.0.27 | BSD-3-Clause |
 | github.com/modelcontextprotocol/go-sdk | v1.6.1 | Apache-2.0 |
+| github.com/muesli/cancelreader | v0.2.2 | MIT |
 | github.com/ncruces/go-strftime | v1.0.0 | MIT |
 | github.com/pkg/errors | v0.9.1 | BSD-2-Clause |
 | github.com/remyoudompheng/bigfft | v0.0.0-20230129092748 | BSD-3-Clause |
@@ -43,11 +67,16 @@ module cache under `$(go env GOMODCACHE)`.
 | github.com/segmentio/asm | v1.1.3 | MIT |
 | github.com/segmentio/encoding | v0.5.4 | MIT |
 | github.com/skip2/go-qrcode | v0.0.0-20200617195104 | MIT |
+| github.com/UserExistsError/conpty | v0.1.4 | MIT |
 | github.com/wailsapp/go-webview2 | v1.0.22 | MIT |
 | github.com/wailsapp/wails/v2 | v2.13.0 | MIT |
+| github.com/xo/terminfo | v0.0.0-20220910002029 | MIT |
 | github.com/yosida95/uritemplate/v3 | v3.0.2 | BSD-3-Clause |
+| github.com/yuin/goldmark | v1.7.8 | MIT |
+| github.com/yuin/goldmark-emoji | v1.0.5 | MIT |
 | golang.org/x/net | v0.54.0 | BSD-3-Clause |
 | golang.org/x/oauth2 | v0.35.0 | BSD-3-Clause |
+| golang.org/x/sync | v0.22.0 | BSD-3-Clause |
 | golang.org/x/sys | v0.46.0 | BSD-3-Clause |
 | golang.org/x/term | v0.43.0 | BSD-3-Clause |
 | golang.org/x/text | v0.37.0 | BSD-3-Clause |
@@ -134,10 +163,8 @@ originals are unmodified in their own repositories.
 
 | Skill | Adapted from | Author | Licence |
 |:---|:---|:---|:---|
-| `aetox-architect` | senior-architect-agent | Aetox Skills | MIT |
-| `aetox-brand` | brand | claudekit | MIT |
 | `aetox-design` | design | claudekit | MIT |
-| `aetox-design-system` | design-system | claudekit | MIT |
+| `aetox-ui-design` (tokens, specs, slide tables) | design-system | claudekit | MIT |
 | `aetox-audit-xls` (agent `sheet`) | audit-xls | Anthropic, PBC | Apache-2.0 |
 | `aetox-clean-data-xls` (agent `sheet`) | clean-data-xls | Anthropic, PBC | Apache-2.0 |
 | `aetox-roll-forward` (agent `sheet`) | roll-forward | Anthropic, PBC | Apache-2.0 |
@@ -160,7 +187,7 @@ through an internal MCP server and edit a live workbook through Office JS, and
 Aetox has neither, so every one of them now works from the files the user hands
 over and writes a new workbook rather than editing theirs.
 
-The `aetox`, `aetox-mcp`, `aetox-prompts`, `aetox-skills` and `aetox-slides`
+The `aetox`, `aetox-mcp`, `aetox-skills` and `aetox-slides`
 skills are Aetox's own and are covered by [LICENSE](LICENSE), not by this
 section.
 
