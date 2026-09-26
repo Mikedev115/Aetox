@@ -1,0 +1,57 @@
+{
+  "case": {
+    "args": [
+      "--quiet-warnings"
+    ],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name"
+            ],
+            [
+              "Quiet"
+            ]
+          ]
+        },
+        "Quiet_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags"
+            ],
+            [
+              "C3",
+              ""
+            ]
+          ]
+        },
+        "Quiet": {
+          "cells": {
+            "C3": {
+              "value": 99,
+              "comment": "{"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Quiet": {
+          "cells": {
+            "C3": {
+              "value": 99
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 0 / 0\n",
+    "stderr_absent": true
+  }
+}

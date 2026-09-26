@@ -1,0 +1,72 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name",
+              "min-score",
+              "threshold-message"
+            ],
+            [
+              "Alts",
+              "",
+              ""
+            ]
+          ]
+        },
+        "Alts_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags",
+              "check-name",
+              "expected-outcome",
+              "fail-message",
+              "expected-points"
+            ],
+            [
+              "E5",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ]
+        },
+        "Alts": {
+          "cells": {
+            "E5": {
+              "value": 1,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 3}, \"alternates\": [\"F5\", \"G5\"]}"
+            },
+            "F5": {
+              "value": 3
+            },
+            "G5": {
+              "value": 2
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Alts": {
+          "cells": {
+            "E5": {
+              "value": 2
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 3 / 3\n"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "case": {
+    "args": [
+      "--report-file",
+      "{report_file}"
+    ],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            ["name"],
+            ["Contract"]
+          ]
+        },
+        "Contract_Checklist": {
+          "rows": [
+            ["number", "flags"],
+            ["B2", ""],
+            ["B3", ""]
+          ]
+        },
+        "Contract": {
+          "cells": {
+            "B2": {
+              "value": 5,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 2}}"
+            },
+            "B3": {
+              "value": 3,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 3, \"mode\": \"penalty\"}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Contract": {
+          "cells": {
+            "B2": {"value": 5},
+            "B3": {"value": 0}
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: -1 / 2\n",
+    "files": [
+      {
+        "path": "report.txt",
+        "contains": ["[CORRECT] B2 B2:", "2 / 2", "[INCORRECT] B3 B3:", "-3 / 3", "Sheet 'Contract':", "Total: -1 / 2"]
+      }
+    ]
+  }
+}

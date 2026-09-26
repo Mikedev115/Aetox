@@ -1,0 +1,66 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name"
+            ],
+            [
+              "PenaltyZero"
+            ]
+          ]
+        },
+        "PenaltyZero_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags"
+            ],
+            [
+              "B2",
+              ""
+            ],
+            [
+              "B3",
+              ""
+            ]
+          ]
+        },
+        "PenaltyZero": {
+          "cells": {
+            "B2": {
+              "value": "pass",
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 5, \"mode\": \"penalty\"}}"
+            },
+            "B3": {
+              "value": 9,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 2}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "PenaltyZero": {
+          "cells": {
+            "B2": {
+              "value": "pass"
+            },
+            "B3": {
+              "value": 0
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 0 / 2\n",
+    "stderr_absent": true
+  }
+}

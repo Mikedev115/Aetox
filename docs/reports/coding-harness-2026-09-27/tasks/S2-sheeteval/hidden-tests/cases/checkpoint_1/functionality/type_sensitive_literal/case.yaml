@@ -1,0 +1,66 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name",
+              "min-score",
+              "threshold-message"
+            ],
+            [
+              "Types",
+              "",
+              ""
+            ]
+          ]
+        },
+        "Types_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags",
+              "check-name",
+              "expected-outcome",
+              "fail-message",
+              "expected-points"
+            ],
+            [
+              "C3",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ]
+        },
+        "Types": {
+          "cells": {
+            "C3": {
+              "value": 1,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 4}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Types": {
+          "cells": {
+            "C3": {
+              "value": "1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 0 / 4\n"
+  }
+}

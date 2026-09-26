@@ -1,0 +1,1 @@
+Task 2: Import `assets/data.json` as an object `data`. Add a star (class is `data.name`, circle radius is `data.r`, fill is `data.color`) in systemRoot. Its center is system center.

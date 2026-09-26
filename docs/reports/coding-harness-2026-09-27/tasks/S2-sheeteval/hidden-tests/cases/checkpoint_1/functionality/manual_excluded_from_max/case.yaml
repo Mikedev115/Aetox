@@ -1,0 +1,81 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name",
+              "min-score",
+              "threshold-message"
+            ],
+            [
+              "ManualSheet",
+              "",
+              ""
+            ]
+          ]
+        },
+        "ManualSheet_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags",
+              "check-name",
+              "expected-outcome",
+              "fail-message",
+              "expected-points"
+            ],
+            [
+              "B2",
+              "manual",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "B3",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ]
+        },
+        "ManualSheet": {
+          "cells": {
+            "B2": {
+              "value": 10,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 5}}"
+            },
+            "B3": {
+              "value": 7,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 2}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "ManualSheet": {
+          "cells": {
+            "B2": {
+              "value": 0
+            },
+            "B3": {
+              "value": 7
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 2 / 2\n"
+  }
+}

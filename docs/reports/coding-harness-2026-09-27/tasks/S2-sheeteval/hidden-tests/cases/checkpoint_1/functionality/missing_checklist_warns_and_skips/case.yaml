@@ -1,0 +1,31 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            ["name"],
+            ["NoChecklist"]
+          ]
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "NoChecklist": {
+          "cells": {
+            "A1": {"value": 1}
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 0 / 0\n",
+    "stderr_contains": [
+      "missing checklist sheet 'NoChecklist_Checklist'"
+    ]
+  }
+}

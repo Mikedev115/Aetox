@@ -1,0 +1,66 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name"
+            ],
+            [
+              "Blanks"
+            ]
+          ]
+        },
+        "Blanks_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags"
+            ],
+            [
+              "B2",
+              ""
+            ],
+            [
+              "B3",
+              ""
+            ]
+          ]
+        },
+        "Blanks": {
+          "cells": {
+            "B2": {
+              "blank": true,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 2}}"
+            },
+            "B3": {
+              "blank": true,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 3}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Blanks": {
+          "cells": {
+            "B2": {
+              "blank": true
+            },
+            "B3": {
+              "blank": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 5 / 5\n",
+    "stderr_absent": true
+  }
+}

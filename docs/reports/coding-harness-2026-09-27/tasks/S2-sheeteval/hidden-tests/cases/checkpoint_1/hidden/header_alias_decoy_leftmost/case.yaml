@@ -1,0 +1,66 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "sheet",
+              "name"
+            ],
+            [
+              "AliasSheet",
+              "WrongSheet"
+            ]
+          ]
+        },
+        "AliasSheet_Checklist": {
+          "rows": [
+            [
+              "id",
+              "number",
+              "flags"
+            ],
+            [
+              "C3",
+              "B2",
+              ""
+            ]
+          ]
+        },
+        "AliasSheet": {
+          "cells": {
+            "B2": {
+              "value": 99,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 5}}"
+            },
+            "C3": {
+              "value": 11,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 2}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "AliasSheet": {
+          "cells": {
+            "B2": {
+              "value": 0
+            },
+            "C3": {
+              "value": 11
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 2 / 2\n",
+    "stderr_absent": true
+  }
+}

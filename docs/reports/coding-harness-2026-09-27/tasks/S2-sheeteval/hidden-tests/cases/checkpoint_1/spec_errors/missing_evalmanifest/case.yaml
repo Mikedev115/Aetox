@@ -1,0 +1,35 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "Budget": {
+          "cells": {
+            "B2": {
+              "value": 10,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 5}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Budget": {
+          "cells": {
+            "B2": {
+              "value": 10
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 1,
+    "stderr_contains": [
+      "Error:",
+      "EvalManifest"
+    ]
+  }
+}

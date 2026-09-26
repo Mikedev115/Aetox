@@ -1,0 +1,55 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name"
+            ],
+            [
+              "TolType"
+            ]
+          ]
+        },
+        "TolType_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags"
+            ],
+            [
+              "C3",
+              ""
+            ]
+          ]
+        },
+        "TolType": {
+          "cells": {
+            "C3": {
+              "value": 100,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 4, \"tolerance\": 1.0}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "TolType": {
+          "cells": {
+            "C3": {
+              "value": "100"
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 0 / 4\n",
+    "stderr_absent": true
+  }
+}

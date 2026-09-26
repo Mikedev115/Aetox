@@ -1,0 +1,42 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            ["name"],
+            ["TolDefault"]
+          ]
+        },
+        "TolDefault_Checklist": {
+          "rows": [
+            ["number", "flags"],
+            ["C2", ""]
+          ]
+        },
+        "TolDefault": {
+          "cells": {
+            "C2": {
+              "value": 10,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 2}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "TolDefault": {
+          "cells": {
+            "C2": {"value": 10.01}
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 0 / 2\n"
+  }
+}

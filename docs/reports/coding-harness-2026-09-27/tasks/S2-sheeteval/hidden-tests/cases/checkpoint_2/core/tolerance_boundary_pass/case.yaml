@@ -1,0 +1,66 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name",
+              "min-score",
+              "threshold-message"
+            ],
+            [
+              "Tol",
+              "",
+              ""
+            ]
+          ]
+        },
+        "Tol_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags",
+              "check-name",
+              "expected-outcome",
+              "fail-message",
+              "expected-points"
+            ],
+            [
+              "B2",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ]
+        },
+        "Tol": {
+          "cells": {
+            "B2": {
+              "value": 100,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 5, \"tolerance\": 0.5}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Tol": {
+          "cells": {
+            "B2": {
+              "value": 100.5
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 5 / 5\n"
+  }
+}

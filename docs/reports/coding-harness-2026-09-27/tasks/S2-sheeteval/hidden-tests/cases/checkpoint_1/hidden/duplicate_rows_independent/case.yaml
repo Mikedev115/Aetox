@@ -1,0 +1,74 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name",
+              "min-score",
+              "threshold-message"
+            ],
+            [
+              "Dupes",
+              "",
+              ""
+            ]
+          ]
+        },
+        "Dupes_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags",
+              "check-name",
+              "expected-outcome",
+              "fail-message",
+              "expected-points"
+            ],
+            [
+              "D4",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "D4",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ]
+        },
+        "Dupes": {
+          "cells": {
+            "D4": {
+              "value": "ok",
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 3}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Dupes": {
+          "cells": {
+            "D4": {
+              "value": "ok"
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 6 / 6\n"
+  }
+}

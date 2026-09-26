@@ -1,0 +1,68 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name"
+            ],
+            [
+              "Kinds"
+            ]
+          ]
+        },
+        "Kinds_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags"
+            ],
+            [
+              "B2",
+              ""
+            ],
+            [
+              "B3",
+              ""
+            ]
+          ]
+        },
+        "Kinds": {
+          "cells": {
+            "B2": {
+              "value": "ok",
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 3}}"
+            },
+            "B3": {
+              "value": "value",
+              "comment": "{\"rule\": {\"kind\": \"regex\", \"points\": 7}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Kinds": {
+          "cells": {
+            "B2": {
+              "value": "ok"
+            },
+            "B3": {
+              "value": "different"
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 3 / 3\n",
+    "stderr_contains": [
+      "unknown rule kind 'regex'"
+    ]
+  }
+}

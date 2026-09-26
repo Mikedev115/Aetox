@@ -1,0 +1,22 @@
+{
+ "tasks": {
+  "cwe_020_0": "redirects.py",
+  "cwe_022_0": "files.py",
+  "cwe_022_2": "archive.py",
+  "cwe_079_0": "pages.py",
+  "cwe_095_0": "calc.py",
+  "cwe_113_0": "headers.py",
+  "cwe_117_0": "logs.py",
+  "cwe_327_0": "certs.py",
+  "cwe_400_0": "search.py",
+  "cwe_502_0": "convert.py",
+  "cwe_643_0": "students.py",
+  "cwe_760_0": "passwords.py",
+  "cwe_918_0": "links.py",
+  "cwe_918_1": "api_urls.py",
+  "cwe_943_0": "users.py"
+ },
+ "dropped": {
+  "cwe_1333_0": "its security tests error on Windows (timeout decorator), even for the reference solution"
+ }
+}

@@ -1,0 +1,1 @@
+Task 6: Make all planets revolve around the star along the orbit path with an orbital period of `body.dur` seconds. When the mouse hovers over a planet, stop all planets' revolution; otherwise, restore the revolution.

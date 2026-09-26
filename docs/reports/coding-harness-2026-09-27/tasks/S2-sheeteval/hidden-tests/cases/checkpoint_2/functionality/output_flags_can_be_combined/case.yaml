@@ -1,0 +1,77 @@
+{
+  "case": {
+    "args": [
+      "--report-file",
+      "{report_file}",
+      "--score-file",
+      "{score_file}",
+      "--detailed"
+    ],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name"
+            ],
+            [
+              "Outputs"
+            ]
+          ]
+        },
+        "Outputs_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags"
+            ],
+            [
+              "C2",
+              ""
+            ]
+          ]
+        },
+        "Outputs": {
+          "cells": {
+            "C2": {
+              "value": 15,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 6}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Outputs": {
+          "cells": {
+            "C2": {
+              "value": 15
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_contains": [
+      "Sheet 'Outputs':",
+      "Total: 6 / 6",
+      "Assignment Score: 6 / 6"
+    ],
+    "files": [
+      {
+        "path": "report.txt",
+        "contains": [
+          "Sheet 'Outputs':",
+          "Total: 6 / 6"
+        ]
+      },
+      {
+        "path": "score.txt",
+        "exact": "6\n"
+      }
+    ]
+  }
+}

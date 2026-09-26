@@ -1,0 +1,57 @@
+{
+  "case": {
+    "args": [
+      "--log"
+    ],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            ["name"],
+            ["LogAll"]
+          ]
+        },
+        "LogAll_Checklist": {
+          "rows": [
+            ["number", "flags"],
+            ["B2", ""],
+            ["B3", ""],
+            ["B4", ""]
+          ]
+        },
+        "LogAll": {
+          "cells": {
+            "B2": {
+              "value": 1,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 1}}"
+            },
+            "B3": {
+              "value": 2,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 1}}"
+            },
+            "B4": {
+              "value": 3,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 1}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "LogAll": {
+          "cells": {
+            "B2": {"value": 1},
+            "B3": {"value": 0},
+            "B4": {"value": 3}
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 2 / 3\n",
+    "stderr_exact": "LOG LogAll.B2: literal CORRECT\nLOG LogAll.B3: literal INCORRECT\nLOG LogAll.B4: literal CORRECT\n"
+  }
+}

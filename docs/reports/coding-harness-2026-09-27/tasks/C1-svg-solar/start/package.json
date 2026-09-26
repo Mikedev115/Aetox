@@ -1,0 +1,15 @@
+{
+  "name": "@web-bench/svg-solar",
+  "version": "0.0.1",
+  "scripts": {
+    "start": "vite src --config vite.config.js",
+    "build": "cross-env VITE_CJS_IGNORE_WARNING=true vite build"
+  },
+  "author": "luics",
+  "devDependencies": {
+    "@types/node": "^22.7.9",
+    "vite": "^7.1.5",
+    "sass-embedded": "~1.83.1",
+    "cross-env": "~7.0.3"
+  }
+}

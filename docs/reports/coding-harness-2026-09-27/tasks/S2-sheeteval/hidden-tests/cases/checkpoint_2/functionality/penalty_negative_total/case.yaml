@@ -1,0 +1,81 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name",
+              "min-score",
+              "threshold-message"
+            ],
+            [
+              "Penalty",
+              "",
+              ""
+            ]
+          ]
+        },
+        "Penalty_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags",
+              "check-name",
+              "expected-outcome",
+              "fail-message",
+              "expected-points"
+            ],
+            [
+              "B2",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "B3",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ]
+        },
+        "Penalty": {
+          "cells": {
+            "B2": {
+              "value": "yes",
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 5, \"mode\": \"penalty\"}}"
+            },
+            "B3": {
+              "value": 9,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 2}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Penalty": {
+          "cells": {
+            "B2": {
+              "value": "no"
+            },
+            "B3": {
+              "value": 9
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: -3 / 2\n"
+  }
+}

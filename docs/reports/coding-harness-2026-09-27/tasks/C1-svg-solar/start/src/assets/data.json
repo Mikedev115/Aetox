@@ -1,0 +1,296 @@
+{
+  "type": "star",
+  "name": "sun",
+  "color": "#ffff00",
+  "r": 8,
+  "bodies": [
+    {
+      "type": "planet",
+      "name": "mercury",
+      "r": 0.4,
+      "rx": 13,
+      "ry": 9,
+      "dur": 15,
+      "color": "#908B8C",
+      "bodies": []
+    },
+    {
+      "type": "planet",
+      "name": "venus",
+      "r": 0.9,
+      "rx": 17,
+      "ry": 17,
+      "dur": 36,
+      "color": "#E9E7DF",
+      "bodies": []
+    },
+    {
+      "type": "planet",
+      "name": "earth",
+      "r": 1,
+      "rx": 20,
+      "ry": 19,
+      "dur": 60,
+      "color": "#4C658B",
+      "bodies": [
+        {
+          "type": "satellite",
+          "name": "moon",
+          "color": "#dddddd",
+          "r": 1,
+          "rx": 20,
+          "ry": 18,
+          "dur": 5,
+          "bodies": []
+        }
+      ]
+    },
+    {
+      "type": "planet",
+      "name": "mars",
+      "r": 0.6,
+      "rx": 25,
+      "ry": 20,
+      "dur": 90,
+      "color": "#D29F71",
+      "bodies": [
+        {
+          "type": "satellite",
+          "name": "phobos",
+          "color": "#dddddd",
+          "r": 2,
+          "rx": 20,
+          "ry": 18,
+          "dur": 5,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "deimos",
+          "color": "#dddddd",
+          "r": 1,
+          "rx": 40,
+          "ry": 39,
+          "dur": 14,
+          "bodies": []
+        }
+      ]
+    },
+    {
+      "type": "planet",
+      "name": "jupiter",
+      "r": 2,
+      "rx": 40,
+      "ry": 36,
+      "dur": 100,
+      "color": "linearGradient: 0% #9A9185, 20% #DCE3E2, 35% #B19584, 50% #B7B6A6, 65% #B19584, 80% #9A9185, 100% #DCE3E2",
+      "bodies": [
+        {
+          "type": "satellite",
+          "name": "amalthea",
+          "color": "#dddddd",
+          "r": 0.2,
+          "rx": 10,
+          "ry": 10,
+          "dur": 2,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "io",
+          "color": "#dddddd",
+          "r": 1.4,
+          "rx": 15,
+          "ry": 15,
+          "dur": 3,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "europa",
+          "color": "#dddddd",
+          "r": 1.2,
+          "rx": 24,
+          "ry": 22,
+          "dur": 5,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "ganymede",
+          "color": "radialGradient: 0% #6B6D60, 50% #B4A777 0.5, 100% #6B6D60",
+          "r": 2,
+          "rx": 36,
+          "ry": 35,
+          "dur": 30,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "callisto",
+          "color": "#dddddd",
+          "r": 1.9,
+          "rx": 60,
+          "ry": 59,
+          "dur": 60,
+          "bodies": []
+        }
+      ]
+    },
+    {
+      "type": "planet",
+      "name": "saturn",
+      "r": 1.9,
+      "rx": 50,
+      "ry": 48,
+      "dur": 150,
+      "color": "linearGradient: 0% #6B6D60, 15% #968F6C, 30% #A99E6D, 50% #B4A777, 70% #A99E6D, 85% #968F6C, 100% #6B6D60",
+      "ring": true,
+      "bodies": [
+        {
+          "type": "satellite",
+          "name": "tethys",
+          "color": "#dddddd",
+          "r": 0.4,
+          "rx": 10,
+          "ry": 10,
+          "dur": 8,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "dione",
+          "color": "#dddddd",
+          "r": 0.4,
+          "rx": 12,
+          "ry": 12,
+          "dur": 12,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "rhea",
+          "color": "#dddddd",
+          "r": 0.6,
+          "rx": 15,
+          "ry": 14,
+          "dur": 5,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "titan",
+          "color": "#dddddd",
+          "r": 2,
+          "rx": 20,
+          "ry": 19,
+          "dur": 30,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "iapetus",
+          "color": "#dddddd",
+          "r": 0.5,
+          "rx": 60,
+          "ry": 58,
+          "dur": 60,
+          "bodies": []
+        }
+      ]
+    },
+    {
+      "type": "planet",
+      "name": "uranus",
+      "r": 1.4,
+      "rx": 60,
+      "ry": 54,
+      "dur": 300,
+      "color": "#D0E5E6",
+      "ring": true,
+      "bodies": [
+        {
+          "type": "satellite",
+          "name": "ariel",
+          "color": "#dddddd",
+          "r": 1.5,
+          "rx": 21,
+          "ry": 20,
+          "dur": 10,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "umbriel",
+          "color": "#dddddd",
+          "r": 1.5,
+          "rx": 26,
+          "ry": 25,
+          "dur": 20,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "titania",
+          "color": "#dddddd",
+          "r": 2,
+          "rx": 48,
+          "ry": 47,
+          "dur": 40,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "oberon",
+          "color": "#dddddd",
+          "r": 1.8,
+          "rx": 60,
+          "ry": 59,
+          "dur": 60,
+          "bodies": []
+        }
+      ]
+    },
+    {
+      "type": "planet",
+      "name": "neptune",
+      "r": 1.4,
+      "rx": 75,
+      "ry": 72,
+      "dur": 600,
+      "color": "#A3BDCA",
+      "bodies": [
+        {
+          "type": "satellite",
+          "name": "proteus",
+          "color": "#dddddd",
+          "r": 0.3,
+          "rx": 10,
+          "ry": 10,
+          "dur": 3,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "triton",
+          "color": "#dddddd",
+          "r": 1,
+          "rx": 13,
+          "ry": 11,
+          "dur": 5,
+          "bodies": []
+        },
+        {
+          "type": "satellite",
+          "name": "nereid",
+          "color": "#dddddd",
+          "r": 0.2,
+          "rx": 60,
+          "ry": 14,
+          "dur": 60,
+          "bodies": []
+        }
+      ]
+    }
+  ]
+}

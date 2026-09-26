@@ -1,0 +1,69 @@
+{
+  "case": {
+    "args": [
+      "--log",
+      "--quiet-warnings"
+    ],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            ["name"],
+            ["MixWarn"]
+          ]
+        },
+        "MixWarn_Checklist": {
+          "rows": [
+            ["number", "flags"],
+            ["B2", "manual"],
+            ["B3", ""],
+            ["B4", ""],
+            ["B5", ""]
+          ]
+        },
+        "MixWarn": {
+          "cells": {
+            "B2": {
+              "value": 10,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 7}}"
+            },
+            "B3": {
+              "value": "x",
+              "comment": "{\"rule\": {\"kind\": \"regex\", \"points\": 5}}"
+            },
+            "B4": {
+              "value": "bad",
+              "comment": "{bad"
+            },
+            "B5": {
+              "value": "ok",
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 2}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "MixWarn": {
+          "cells": {
+            "B2": {"value": 0},
+            "B3": {"value": "y"},
+            "B4": {"value": "bad"},
+            "B5": {"value": "ok"}
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 2 / 2\n",
+    "stderr_contains": [
+      "LOG MixWarn.B5: literal CORRECT"
+    ],
+    "stderr_not_contains": [
+      "Warning:"
+    ]
+  }
+}

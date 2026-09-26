@@ -1,0 +1,73 @@
+{
+  "case": {
+    "args": [
+      "--report-file",
+      "{report_file}"
+    ],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            ["name"],
+            ["Combo2"]
+          ]
+        },
+        "Combo2_Checklist": {
+          "rows": [
+            ["number", "flags"],
+            ["B2", ""],
+            ["B3", ""],
+            ["B4", ""]
+          ]
+        },
+        "Combo2": {
+          "cells": {
+            "B2": {
+              "value": 100,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 5, \"tolerance\": 0.2}}"
+            },
+            "B3": {
+              "value": 1,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 4, \"mode\": \"penalty\"}, \"alternates\": [\"D3\"]}"
+            },
+            "D3": {
+              "value": 2
+            },
+            "B4": {
+              "value": "Y",
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 3, \"mode\": \"penalty\"}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Combo2": {
+          "cells": {
+            "B2": {"value": 100.1},
+            "B3": {"value": 2},
+            "B4": {"value": "N"}
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 2 / 5\n",
+    "stderr_absent": true,
+    "files": [
+      {
+        "path": "report.txt",
+        "contains": [
+          "Sheet 'Combo2':",
+          "[CORRECT] B2",
+          "[CORRECT] B3",
+          "[INCORRECT] B4",
+          "Total: 2 / 5"
+        ]
+      }
+    ]
+  }
+}

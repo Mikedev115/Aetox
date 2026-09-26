@@ -1,0 +1,86 @@
+{
+  "case": {
+    "args": [
+      "--report-file",
+      "{report_file}",
+      "--detailed"
+    ],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name",
+              "min-score",
+              "threshold-message"
+            ],
+            [
+              "Report",
+              "",
+              ""
+            ]
+          ]
+        },
+        "Report_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags",
+              "check-name",
+              "expected-outcome",
+              "fail-message",
+              "expected-points"
+            ],
+            [
+              "C2",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ]
+        },
+        "Report": {
+          "cells": {
+            "C2": {
+              "value": 10,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 4, \"tolerance\": 0.1}, \"alternates\": [\"D2\"]}"
+            },
+            "D2": {
+              "value": 12
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Report": {
+          "cells": {
+            "C2": {
+              "value": 12
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_contains": [
+      "Sheet 'Report':",
+      "[CORRECT]",
+      "Assignment Score: 4 / 4"
+    ],
+    "files": [
+      {
+        "path": "report.txt",
+        "contains": [
+          "Sheet 'Report':",
+          "Total: 4 / 4"
+        ]
+      }
+    ]
+  }
+}

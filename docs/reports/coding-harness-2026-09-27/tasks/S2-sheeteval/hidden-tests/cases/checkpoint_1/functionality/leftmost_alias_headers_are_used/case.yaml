@@ -1,0 +1,66 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "tab",
+              "name"
+            ],
+            [
+              "CorrectSheet",
+              "WrongSheet"
+            ]
+          ]
+        },
+        "CorrectSheet_Checklist": {
+          "rows": [
+            [
+              "id",
+              "number",
+              "flags"
+            ],
+            [
+              "C2",
+              "Z9",
+              ""
+            ]
+          ]
+        },
+        "CorrectSheet": {
+          "cells": {
+            "C2": {
+              "value": 11,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 6}}"
+            },
+            "Z9": {
+              "value": 99,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 1}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "CorrectSheet": {
+          "cells": {
+            "C2": {
+              "value": 11
+            },
+            "Z9": {
+              "value": 0
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 6 / 6\n",
+    "stderr_absent": true
+  }
+}

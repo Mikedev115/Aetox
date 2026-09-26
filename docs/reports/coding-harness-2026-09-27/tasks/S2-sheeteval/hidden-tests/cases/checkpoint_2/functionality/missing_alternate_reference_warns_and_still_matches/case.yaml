@@ -1,0 +1,61 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name"
+            ],
+            [
+              "AltWarn"
+            ]
+          ]
+        },
+        "AltWarn_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags"
+            ],
+            [
+              "B2",
+              ""
+            ]
+          ]
+        },
+        "AltWarn": {
+          "cells": {
+            "B2": {
+              "value": 1,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 5}, \"alternates\": [\"bad-ref\", \"D2\"]}"
+            },
+            "D2": {
+              "value": 7
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "AltWarn": {
+          "cells": {
+            "B2": {
+              "value": 7
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 5 / 5\n",
+    "stderr_contains": [
+      "Warning:",
+      "alternate"
+    ]
+  }
+}

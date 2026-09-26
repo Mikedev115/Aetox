@@ -1,0 +1,48 @@
+{
+  "case": {
+    "args": [
+      "--report-file",
+      "{tmp}"
+    ],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            ["name"],
+            ["ReportFail"]
+          ]
+        },
+        "ReportFail_Checklist": {
+          "rows": [
+            ["number", "flags"],
+            ["B2", ""]
+          ]
+        },
+        "ReportFail": {
+          "cells": {
+            "B2": {
+              "value": 5,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 2}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "ReportFail": {
+          "cells": {
+            "B2": {"value": 5}
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 1,
+    "stdout_exact": "",
+    "stderr_contains": [
+      "Error:"
+    ]
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name"
+            ],
+            [
+              "NegTol"
+            ]
+          ]
+        },
+        "NegTol_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags"
+            ],
+            [
+              "B2",
+              ""
+            ]
+          ]
+        },
+        "NegTol": {
+          "cells": {
+            "B2": {
+              "value": 10,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 3, \"tolerance\": -0.25}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "NegTol": {
+          "cells": {
+            "B2": {
+              "value": 10.1
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 0 / 3\n",
+    "stderr_contains": [
+      "negative tolerance"
+    ]
+  }
+}

@@ -1,0 +1,1 @@
+Task 4: Add planets (svg circle, class `planet {body.name}`, fill is `body.color`, radius is `body.r`) to the right point of each orbit.

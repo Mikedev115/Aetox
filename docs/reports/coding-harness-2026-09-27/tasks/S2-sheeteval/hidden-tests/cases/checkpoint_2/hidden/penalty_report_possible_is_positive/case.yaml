@@ -1,0 +1,77 @@
+{
+  "case": {
+    "args": [
+      "--report-file",
+      "{report_file}"
+    ],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name"
+            ],
+            [
+              "PenReport"
+            ]
+          ]
+        },
+        "PenReport_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags"
+            ],
+            [
+              "B2",
+              ""
+            ],
+            [
+              "B3",
+              ""
+            ]
+          ]
+        },
+        "PenReport": {
+          "cells": {
+            "B2": {
+              "value": "ok",
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 3, \"mode\": \"penalty\"}}"
+            },
+            "B3": {
+              "value": 2,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 2}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "PenReport": {
+          "cells": {
+            "B2": {
+              "value": "bad"
+            },
+            "B3": {
+              "value": 2
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: -1 / 2\n",
+    "files": [
+      {
+        "path": "report.txt",
+        "contains": [
+          "[INCORRECT] B2 B2: -3 / 3",
+          "Sheet 'PenReport': -1 / 2"
+        ]
+      }
+    ]
+  }
+}

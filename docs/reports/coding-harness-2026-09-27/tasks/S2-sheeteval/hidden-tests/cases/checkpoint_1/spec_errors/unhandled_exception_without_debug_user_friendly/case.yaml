@@ -1,0 +1,45 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            ["name"],
+            ["Crash"]
+          ]
+        },
+        "Crash_Checklist": {
+          "rows": [
+            ["number", "flags"],
+            ["BAD", ""]
+          ]
+        },
+        "Crash": {
+          "cells": {
+            "A1": {"value": 1}
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Crash": {
+          "cells": {
+            "A1": {"value": 1}
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 1,
+    "stdout_exact": "",
+    "stderr_contains": [
+      "Error:"
+    ],
+    "stderr_not_contains": [
+      "Traceback (most recent call last):"
+    ]
+  }
+}

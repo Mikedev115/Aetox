@@ -1,0 +1,88 @@
+{
+  "case": {
+    "args": [],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            [
+              "name"
+            ],
+            [
+              "AliasFlags"
+            ]
+          ]
+        },
+        "AliasFlags_Checklist": {
+          "rows": [
+            [
+              "number",
+              "flags"
+            ],
+            [
+              "B2",
+              "MANUAL"
+            ],
+            [
+              "B3",
+              "Manual"
+            ],
+            [
+              "B4",
+              "mAnUaL"
+            ],
+            [
+              "B5",
+              ""
+            ]
+          ]
+        },
+        "AliasFlags": {
+          "cells": {
+            "B2": {
+              "value": 10,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 5}}"
+            },
+            "B3": {
+              "value": 20,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 4}}"
+            },
+            "B4": {
+              "value": 30,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 3}}"
+            },
+            "B5": {
+              "value": 40,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 2}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "AliasFlags": {
+          "cells": {
+            "B2": {
+              "value": 0
+            },
+            "B3": {
+              "value": 0
+            },
+            "B4": {
+              "value": 0
+            },
+            "B5": {
+              "value": 40
+            }
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 2 / 2\n",
+    "stderr_absent": true
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "case": {
+    "args": [
+      "--score-file",
+      "{score_file}"
+    ],
+    "answer_key": {
+      "sheets": {
+        "EvalManifest": {
+          "rows": [
+            ["name"],
+            ["Scores"]
+          ]
+        },
+        "Scores_Checklist": {
+          "rows": [
+            ["number", "flags"],
+            ["B2", ""]
+          ]
+        },
+        "Scores": {
+          "cells": {
+            "B2": {
+              "value": 42,
+              "comment": "{\"rule\": {\"kind\": \"literal\", \"points\": 5}}"
+            }
+          }
+        }
+      }
+    },
+    "submission": {
+      "sheets": {
+        "Scores": {
+          "cells": {
+            "B2": {"value": 42}
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "returncode": 0,
+    "stdout_exact": "Assignment Score: 5 / 5\n",
+    "files": [
+      {
+        "path": "score.txt",
+        "exact": "5\n"
+      }
+    ]
+  }
+}
