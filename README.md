@@ -195,14 +195,21 @@ unpack, run `aetox.exe`. Since 1.6.0 the zip holds two files — `aetox.exe` and
 
 **In the terminal** — `aetox` in any folder opens the Code desk full-screen: type the task, watch the
 tool calls land above the input, answer an approval card in place. A separate download, not part of
-the app above, so the installer and the Store package stay exactly as they are:
+the app above, so the installer and the Store package stay exactly as they are. The console is not
+in the Microsoft Store.
+
+[aetox-cli-setup.exe](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-setup.exe)
+— installs "Aetox CLI" into your user folder (no administrator rights) and puts it on your user
+`PATH`; open a new terminal and type `aetox`. Remove it from Settings → Apps → Aetox CLI. Or with
+scoop:
 
 ```powershell
 scoop install https://raw.githubusercontent.com/Mikedev115/Aetox/main/scoop/aetox-cli.json
 ```
 
 or [aetox-cli-windows-amd64.zip](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-windows-amd64.zip)
-— unpack anywhere and add that folder to `PATH`. When the app is installed on the same machine the
+— unpack anywhere and run `.\aetox.exe path add` there once to put that folder on your `PATH`.
+When the app is installed on the same machine the
 terminal uses the app's engine and shares its keys, chats and memory; without the app it runs the
 engine that comes in the zip. `aetox chat "task"` is one turn with the answer on stdout, for
 scripts; `aetox --plain` is the line-by-line console; `/help` inside lists every command.
@@ -742,9 +749,9 @@ skills off also scored 86, so that lead is the harness, not the skills; on Terra
 OpenCode 91, a loss we have not closed. Every task, scorer, run count, excluded run and changed
 threshold is in [SKILL-BENCH.md](docs/reports/SKILL-BENCH.md).
 
-## Status — v1.9.0
+## Status — v1.9.1
 
-The core is in place. [Release notes](docs/release-notes/v1.9.0.md) ·
+The core is in place. [Release notes](docs/release-notes/v1.9.1.md) ·
 [roadmap](ROADMAP.md).
 
 Three things it does today that are worth knowing about:
