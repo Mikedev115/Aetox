@@ -566,9 +566,10 @@ which is why the list got shorter in v1.5.15 without anything being taken away. 
 | **Running commands** | `computer` *(list_apps · read · capture · focus · click · type · close — only once switched on in ตั้งค่า > การใช้คอมพิวเตอร์)* `desk_terminal` `git` `shell` *(run · output · kill · list)* |
 | **Handing back files** | `asset_find` `doc_write` `sheet_write` `video` *(new · check · render)* |
 | **Reading media** | `image_make` `media_read` *(image · video · audio)* `pdf_read` `video_project` |
-| **Web and automation** | `browser` *(open · read · click · type · wait · back · scroll · capture · tabs · dialog · console · network · hover · drag · key · upload)* `media_fetch` `web_fetch` `web_search` |
-| **Code work** | `codebase` *(errors · symbol · impact · map · trace · design)* `github` *(search · repo_summary · list_files · read_file)* `pr` *(list · read · checks · create · comment)* `rename` |
-| **How the assistant works** | `ask_user` `calc` `desk` *(open · list · close · focus)* `memory` `plan_mode` `plan` *(write · amend · read · step · report)* `plugin_install` `session_search` `skill_view` `task` *(start · collect · answer · message · plan)* `time` `todo_write` |
+| **Web** | `browser` *(open · read · click · type · wait · back · scroll · capture · tabs · dialog · console · network · hover · drag · key · upload)* `media_fetch` `web_fetch` `web_search` |
+| **Code work** | `codebase` *(errors · symbol · impact · map · trace · design)* `rename` |
+| **GitHub** | `github` *(search · repo_summary · list_files · read_file)* `pr` *(list · read · checks · create · comment)* |
+| **How the assistant works** | `ask_user` `calc` `desk` *(open · list · close · focus)* `memory` `plan` *(write · amend · read · step · report)* `plugin_install` `session_search` `skill_view` `task` *(start · collect · answer · message · plan)* `time` `todo_write` |
 
 That table is generated from the registry the model is actually handed
 (`go test ./internal/engine -run TestPrintReadmeToolTable -v`, plus the two the window lends),
@@ -749,29 +750,27 @@ skills off also scored 86, so that lead is the harness, not the skills; on Terra
 OpenCode 91, a loss we have not closed. Every task, scorer, run count, excluded run and changed
 threshold is in [SKILL-BENCH.md](docs/reports/SKILL-BENCH.md).
 
-## Status — v1.9.1
+## Status — v1.9.2
 
-The core is in place. [Release notes](docs/release-notes/v1.9.1.md) ·
+The core is in place. [Release notes](docs/release-notes/v1.9.2.md) ·
 [roadmap](ROADMAP.md).
 
 Three things it does today that are worth knowing about:
 
-- **The Team door is an organisation you talk to through one secretary.** Agents, teams,
-  departments and companies each have a head that thinks for itself; the secretary takes the
-  order, decides which rung it belongs to and hands it over by name. Every piece of delegated work
-  is one tree in the chat (who got it, what they are doing now, what came back), a team's output is
-  real files in its folder, and saved workflows walk step by step through the teams you named. The
-  office draws it all: a 3D campus or tower on your own clock, and a phone on the :8317 page that
-  shows the chat the window has open.
-- **You install an MCP server or a skill by telling the AI.** Paste a link, a config block, a
-  `claude mcp add` line or just a name; Aetox picks the official server from the registry, checks
-  whether it needs OAuth or a key, and shows a card that a person presses at every approval
-  level. The installer is Aetox's own side room beside the MCP and skills pages.
-- **Every skill on the shelf was measured.** The shelf went from 43 to 24, and every new or tuned
-  skill passes a gate that runs it off, natural and forced open before it is kept, re-worded or
-  deleted. Results, including what did not move, are in
-  [SKILL-BENCH.md](docs/reports/SKILL-BENCH.md). A console build of the coding desk
-  (`aetox-cli-windows-amd64.zip`) ships beside the app.
+- **A web page is checked every time it is written.** Writing or editing an `.html` file makes
+  Aetox load it at desktop and phone width, light and dark, and what needs fixing comes back with
+  the write: script errors, text under AA contrast, a page wider than the screen, a dark view that
+  stayed light, Thai whose marks float or overlap the next line, controls too small to hit. The
+  assistant no longer spends rounds opening the page to look.
+- **All 11 themes come in light and dark, and every one is readable.** Pick a family and let it
+  follow the system, set three colours of your own, turn the contrast, copy or import a theme as
+  one line; every colour pair is held to the same bar as the tests, whatever you choose. The
+  terminal takes the theme's colours, copies and pastes properly, and Ctrl+click opens a link or a
+  file at its line.
+- **Long sessions cost less.** The machine clock no longer knocks the history out of the cache
+  every turn, tool results are plain text, re-reading lines still in the conversation answers with
+  where they are instead of sending them again, and grep cuts between matches, never inside one.
+  Every browser tab has a *let the agent use it* button, so it is clear which tabs the agent can touch.
 
 **Next** — one provider chain that switches accounts when a plan window is spent · external
 agent programs as engines (§258) · the personal secretary on the user's own Apps Script bridge ·
