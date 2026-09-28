@@ -750,9 +750,9 @@ skills off also scored 86, so that lead is the harness, not the skills; on Terra
 OpenCode 91, a loss we have not closed. Every task, scorer, run count, excluded run and changed
 threshold is in [SKILL-BENCH.md](docs/reports/SKILL-BENCH.md).
 
-## Status — v1.9.2
+## Status — v1.9.3
 
-The core is in place. [Release notes](docs/release-notes/v1.9.2.md) ·
+The core is in place. [Release notes](docs/release-notes/v1.9.3.md) ·
 [roadmap](ROADMAP.md).
 
 Three things it does today that are worth knowing about:
