@@ -5,13 +5,15 @@
 <h1 align="center">Aetox</h1>
 
 <p align="center">
-  <strong>A Windows desktop app that finishes the work on your machine — files, browser, shell, documents.</strong>
+  <strong>Assistant · Code desk · Agent teams — three doors in one Windows app that does the work on your machine</strong>
 </p>
+
+<h3 align="center">The heart is not what the model knows. It is the architecture of the whole system.</h3>
 
 <p align="center">
   <a href="https://github.com/Mikedev115/Aetox/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Mikedev115/Aetox?color=2f81f7"></a>
+  <a href="docs/reports/coding-harness-1.9.3"><img alt="Coding benchmark" src="https://img.shields.io/badge/coding%20benchmark-395%20runs%20%C2%B7%205%20harnesses-8250df"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-proprietary%20%C2%B7%20source%20available-blue"></a>
-  <img alt="Tests" src="https://img.shields.io/badge/tests-3%2C648%20Go%20%2B%202%2C106%20UI-brightgreen">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2B-lightgrey">
 </p>
 
@@ -20,6 +22,8 @@
   <a href="https://mikedev115.github.io/Aetox-landing/">Website</a> ·
   <a href="https://apps.microsoft.com/detail/9N4KKBRRSCZZ">Microsoft Store</a> ·
   <a href="https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe">Download</a> ·
+  <a href="https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-setup.exe">Aetox CLI</a> ·
+  <a href="docs/reports/coding-harness-1.9.3">Coding benchmark</a> ·
   <a href="https://www.facebook.com/share/g/1BnXC5EiWg/">Community</a>
 </p>
 
@@ -27,116 +31,171 @@
   <img src="docs/assets/hero-app.png" alt="Aetox desktop" width="90%">
 </p>
 
----
+> Free to use · **source-available, not open source** · the source in this repository stops at v1.7.0, while the
+> program itself still ships every release here — [read more](#source-licence-and-who-makes-it)
 
-> **The source in this repository stops at v1.7.0 (2026-09-15). The product does not.**
-> Every release after that still lands here — tags, installers, the portable zip, the
-> Linux engine, checksums and release notes — and the in-app update check, scoop and the
-> Microsoft Store keep working exactly as before.
->
-> **Why 1.7.0 and not 1.8.0.** The source was open through v1.8.0 for one day (20–21
-> September 2026) and was then rolled back. What arrived between 1.7.0 and 1.8.0 (222
-> commits in five days) — MCP tools that became a shelf instead of a tool block resent
-> every turn, an editor with a language server behind it and no extension market, a
-> session context written every turn and handed back on reopen, a window nearly half as
-> heavy at rest — is the architectural layer that makes Aetox as cheap to run as it is. From the outside it looks like any other agent app; the
-> inside is where the author spent the most design time, and is the part he chose to keep.
-> Not closed because anyone did anything, but because it is the most valuable part of the
-> work, and he is the one person still building it.
->
-> The code you can read here is the real v1.7.0, unchanged, and remains readable for
-> learning under the [LICENSE](LICENSE). The measured numbers are still published in full
-> under [docs/reports](docs/reports). Bug reports still go to
-> [Issues](https://github.com/Mikedev115/Aetox/issues); a star still tells the author
-> something.
+**Jump to:** [What it does](#what-aetox-does-for-you) · [Architecture](#the-heart-is-the-architecture-not-the-model) ·
+[Assistant](#the-assistant-door) · [Code](#the-code-door) · [Team](#the-team-door) · [Models](#which-models-it-works-with) ·
+[Measured results](#measured-results) · [Install](#install) · [Safety](#safety-and-your-data) ·
+[How the system works](#how-the-system-works) · [Licence](#source-licence-and-who-makes-it)
 
----
+## What Aetox does for you
 
-## What it is
+| If you want | Open the door | Aetox gives you |
+|:---|:---|:---|
+| AI that works with your files, the web and documents on your machine | **Assistant**<br>Use, remember, and create | Real file reads and writes, real commands, and a real browser you watch and can take over. It reads images, PDFs and audio, and hands back spreadsheets, documents and slides that actually open |
+| To write, fix and test code | **Code**<br>Build, debug, and ship | A desk bound to your project. Agent mode lets the agent do the work; Editor mode lets you write while Aetox helps. Language servers, Git, a real terminal, and `aetox` in your terminal too |
+| To split work across several roles at once | **Team**<br>Arrange, start, and watch | Talk to one secretary; the work goes to a team, a department or a company of agents with a head at every level, and comes back as real files |
+
+All three doors are one app sharing one set of keys, memory, settings and permissions; switch in the top bar
+at any time. It works with [28 external model providers](#which-models-it-works-with), cloud and local, plus a
+built-in trial provider, so you can start without an API key. The interface ships in Thai and English, with Thai
+as the default. **[Install](#install)** from the Microsoft Store, the installer, or as Aetox CLI.
+
+## The heart is the architecture, not the model
 
 **Aetox is the execution layer for AI** — *models provide intelligence, Aetox provides capability.*
 
 ```
-                        MODEL      ← knows what should be done
-                          ↓
-                     ┌─────────┐
-                     │  AETOX  │   ← eyes, ears, hands, tools, permission
-                     │Execution│
-                     │  Layer  │
-                     └────┬────┘
-                          ↓
-            ┌─────────────┼─────────────┐
-            ↓             ↓             ↓
-          Files        Browser        Shell
-            ↓             ↓             ↓
-        documents     websites      programs
+                     MODEL        ← the brain: knows what should be done
+                       ↓
+                  ┌─────────┐
+                  │  AETOX  │     ← the body: eyes, ears, hands, tools, permission
+                  └────┬────┘
+          ┌────────────┼────────────┐
+          ↓            ↓            ↓
+      Assistant       Code         Team
+   files web docs   project Git   secretary → head → agent
 ```
 
-> **The north star of this project.** *Do not build an AI that answers more. Build an AI that
-> does more.*
+> **The north star of this project.** *Do not build an AI that answers more. Build an AI that does more.*
 
-Aetox is a desktop application for Windows that runs an AI agent against your own machine.
-You describe what needs doing; it reads and writes real files, runs real commands in a real
-shell, and drives a real browser you can watch.
+There is a word for this arrangement: a **harness**, the program around a model that gives it tools, a loop,
+and somewhere to work. The model is the engine; the harness is the car. That is why the same model can be a
+different product in two apps, and why a published score belongs to a model and a harness together, never to
+the model alone.
 
-It is two self-contained executables, 83.4 MB together — `aetox.exe`, the window, and since 1.6.0
-`aetox-engine.exe`, the half that thinks and works, beside it. There is no runtime to install
-alongside them, no `node_modules`, no bundled copy of Chromium. It talks to whichever model you point it at —
-a hosted API, a subscription you already pay for, or a 9B/35B running in LM Studio or Ollama on
-your own GPU (your data never leaves your machine or country — hook it up to Ollama and not a single byte goes anywhere) — and the capability comes from the app rather than from the model's parameters.
-That is why a small local model can still read a picture, transcribe a recording, and hand you a
-deck that opens in PowerPoint: `image_ocr`, `audio_transcribe` and the slide exporter are the
-app's, not the model's.
+Much of what people assume has to come from a bigger model is, in Aetox, the system's job:
 
-There is a word for that arrangement. Aetox is a **harness**: the program around a model that
-gives it tools, a loop, and somewhere to work. The model is the engine; the harness is the car.
-That is why the same model can be a different product in two apps — and why a score belongs to a
-model and a harness together rather than to the model alone.
+1. **A blind model drives the browser** — the system numbers every element on the page, so a model with no
+   vision clicks the right button without guessing coordinates → [Assistant door](#the-assistant-door)
+2. **A blind model reads images, a model that cannot hear transcribes, a model that only writes text hands back
+   real files** — Thai and English OCR, offline speech-to-text, and the builders for `.xlsx` `.docx` `.pptx`,
+   decks and video belong to the app → [Assistant door](#the-assistant-door)
+3. **A small local model does big work** — a 9B/35B model in LM Studio or Ollama gets the same tools as a
+   frontier one, and not a byte leaves your machine → [Which models it works with](#which-models-it-works-with)
+4. **Same model, different result** — on GPT-6 Luna (`gpt-6-luna`, through the same ChatGPT (Codex) account for
+   every harness), code passing the security tests (CWEval func-sec@1): Aetox 97.8% · OpenCode 66.7% ·
+   Codex CLI 66.7% · omp 68.9% · pi 64.4%, over 395 runs judged by hidden tests. The method and where Aetox
+   loses are in [Measured results](#measured-results)
+5. **Many tools do not mean a full context** — an MCP server with 212 tools costs a 135-token index, and the
+   definitions load when they are actually used → [How the system works](#how-the-system-works)
+6. **An organisation run by the system, not by pleading in a prompt** — your words reach the head at every
+   level verbatim, send-back rounds are counted by the system, and heads hold no run slot, so work fans out
+   across several levels at once without deadlocking → [Team door](#the-team-door)
 
-Two concrete jobs, to make that less abstract. *"Go through this folder of receipts and give me
-one spreadsheet"* — it OCRs each image, works out the totals in a JavaScript interpreter
-compiled into the binary and shows you the script beside the answer, then writes a real `.xlsx`
-with live formulas. *"Find why the login test is flaky"* — it greps the repo, runs the suite in
-a terminal tab you can watch, reads the failure, and edits the file.
+The app is two self-contained executables — `aetox.exe`, the window, and `aetox-engine.exe`, the engine that
+thinks and works. No runtime to install, no `node_modules`, no bundled copy of Chromium. Because the engine is
+a process of its own, it can run on another Linux machine: add the host under ตั้งค่า › เครื่องระยะไกล and
+connect, and the app ships the engine over your own `ssh`; the chat, files, terminal and Git you see are that
+machine's. Your provider keys never leave the machine the window runs on — the engine asks the window to sign
+each request.
 
-**The interface ships in Thai and English, and Thai is the default.** Every string exists in
-both; the language switch is in Settings and in the first-run wizard. This README is in English;
-[ภาษาไทย is here](README.th.md).
+## The Assistant door
 
-## Highlights
+*Use, remember, and create* — the assistant works across the whole machine when no project is focused, or
+inside a project folder plus the folders you add. Everything happens on the workbench beside the chat, which
+has four rooms: slides, browser, files and terminal. The agent does not work behind a curtain and hand you a
+file at the end; it opens a room, works in it, and you can reach in and change something yourself without
+waiting for the turn to finish. The assistant has files and a shell, so it does software work too, and it
+never hands a request back because it involves code.
 
-- **Four rooms in the same window as the conversation** — slides, browser, files and terminal. The
-  agent works in the room you are looking at, and you can reach in at any point. The Code door adds
-  two more: Git, and the Timeline of the project's commits.
-- **It builds slide decks** — one self-contained `.html` file that is yours, editable by hand, and
-  openable on any machine with a browser. Exports as `.pdf`, `.png` or `.jpg`.
-- **The browser control layer is ours** — the window is WebView2; the layer that drives it we
-  designed and built for Aetox specifically. The model does not need to see the screen — our system
-  labels every interactive element on the page and hands the model a plain-text list. The model
-  processes text as always, then clicks by element reference, not by guessing pixel coordinates.
-  A text-only model with no vision drives the browser as accurately as one that can see it.
-  The capability is in the system, not in the model.
-- **It builds websites and systems, not just code in a chat box** — a file tree, a Monaco editor,
-  unlimited real PTY terminal tabs, `git`, `grep` and `glob` over the whole tree, and language
-  servers the app installs itself.
-- **Capability comes from the app, not from model parameters** — Thai/English OCR and offline
-  speech-to-text are tools the app drives, so a 9B/35B model on your own GPU does these jobs as
-  well as a frontier one.
-- **27 model providers** — cloud (OpenAI, Anthropic, Gemini, DeepSeek, Groq, and more) and local
-  (LM Studio, Ollama), switchable mid-conversation with context intact. Full list under
-  [Everything it can do](#everything-it-can-do).
-- **The engine is a process of its own, and it can run on another machine.** Since 1.6.0 the
-  window is a screen and `aetox-engine` does the work beside it, over one socket. Add a Linux
-  host under ตั้งค่า › เครื่องระยะไกล and connect with one click: the app ships the engine over
-  your own `ssh`, starts it, opens the tunnel and looks after it, and the chat, the files, the
-  terminal and Git are that machine's. Your provider keys never leave the machine the window
-  runs on — the engine asks the window to sign each request.
-- **A companion that lives on your desktop.** The robot mascot is drawn from code, has poses for
-  what the assistant is doing, greets you by name and reads its finished answer aloud. Keep it in
-  the window, or let it out onto the desktop as a real Win32 window with no browser behind it —
-  drag it to any monitor, resize it, and it keeps working while you do.
+> **What the system does for the model at this door**
+> - Numbers every element on a web page, so a model with no vision clicks the right button
+> - Turns images into text with Thai and English OCR, and transcribes audio offline on your machine
+> - Builds `.xlsx` files with working formulas, `.docx`, `.pptx`, slide decks and video
+> - Does arithmetic in a JavaScript interpreter compiled into the app, and shows you the script to check
+> - Searches past conversations with SQLite on your machine, spending no tokens
+> - Asks you before anything is posted, sent or shared outside, at every permission level
 
-## Use Aetox as a Telegram or Discord bot
+**A real browser you can watch.** Not a headless scrape: a WebView2 window composited into the app, with an
+address bar, back and forward, DevTools, and eight device presets that resize the native window so CSS media
+queries genuinely fire. The layer that drives it is ours, designed and built for Aetox; click and type aim at an
+element's number, not at x,y coordinates. Every tab has a **Let the agent use this tab** button: lit means the agent
+may touch that tab, and switching it off makes the tab yours.
+
+<img src="docs/assets/cap-browser.png" alt="The agent driving a page in the workbench browser" width="100%">
+
+**Images, PDFs and audio.** `image_ocr` runs Tesseract in Thai and English, so a screenshot, a scan or a
+photographed form becomes text a 9B/35B model can reason about; a model that *can* see gets the image itself.
+PDFs are read with the layout intact and audio is transcribed offline. Hand over a folder and ask for what you
+actually want — *"go through this folder of receipts and give me one spreadsheet"*: it OCRs each image, works
+out the totals in the JavaScript interpreter, puts the script beside the answer, and writes a real `.xlsx`
+with live formulas.
+
+<img src="docs/assets/cap-image-ocr.png" alt="OCR pulling Thai text out of an image" width="100%">
+
+**Real files back.** A deck comes back as one self-contained `.html` file, editable by hand and openable on any
+machine with a browser. Page through it, present it full screen, and export `.pdf`, `.png` or `.jpg` from the
+slides room; the PDF comes from the same renderer that drew it on screen, and the 1280x720 slide is exactly
+PowerPoint's widescreen page. `.xlsx`, `.docx` and `.pptx` are the `sheet` and `doc` agents' work, video is
+`video`'s, and voice-over comes from `voice_make`.
+
+**Hand work to a specialist.** Pick someone off the `+` menu — `@doc`, `@sheet`, `@deepresearch`, `@video` —
+and your sentence reaches that agent word for word, not a paraphrase. (Typing `@` yourself does nothing, on
+purpose: a pasted draft that merely quoted an agent's name once sent a whole brief to the wrong worker.) Or let
+the assistant delegate through `task`: up to four specialists run at once, so three jobs cost the time of the
+slowest rather than the sum. One that reaches a decision it should not make alone comes back as a question
+under its name in the chat, and one still working when your answer arrives keeps going — the end of a turn is
+not a deadline.
+
+<details>
+<summary>A real run: find 20 CRMs and compare them in a spreadsheet</summary>
+
+Run on 2026-08-15, from one sentence — *"find 20 CRMs a Thai SME could actually pick and give me a spreadsheet
+comparing them"*: **6m 51s, two agents, 42 tool calls between them** — 8 by the assistant, 27 by
+`deepresearch` reading pricing pages, 7 by `sheet` — and one tool failure it worked around. `deepresearch` left
+a report in the session's output folder and `sheet` was given the *path*, not the contents.
+
+Twenty rows came back, fourteen with a real numeric price sorted low to high, and **six deliberately left blank**
+with the reason beside them — quoted-only pricing, or a page that would not state a figure. Every row carries
+the date the page was read and the link the number came from. The blanks are the part worth trusting: a table
+with no gaps in it is a table that guessed.
+
+</details>
+
+**Give it a job, not a step.** Long work is planned before it is worked, and the plan sits on screen as one box
+ticked off as it goes, so what you watch is the order it chose rather than a spinner. For thinking before acting
+there is a planning mode that can read anything and change nothing; that button is yours alone, and the model
+cannot switch itself into it. Two chats can sit side by side in one window (`Ctrl+\`).
+
+**Chats can write to each other.** Copy a chat's ID beside its title or from its menu, then ask another chat to
+send it a question or an update. The receiving chat handles the message while working or opens a turn for it
+when idle; a question accepts one reply. A closed chat in another project must be opened first.
+
+**It remembers, and you can undo.** The assistant writes down what is worth keeping on its own — when you
+correct it, confirm an unusual approach, or make a decision the code does not show — and the card under the
+answer shows the kept line with an **Undo** button. A fact you declined or undid is never kept again, in any
+wording. Lessons from a mistake repeated three times still wait in the review queue for you to accept or
+discard. Everything kept is plain markdown you can open, edit or forget. **Standing instructions** are your
+own always-on files that ride into every desk, every project and every agent. Every conversation and tool run
+lives in local SQLite with FTS5, so `session_search` is a query on your machine rather than a question to the
+model, in Thai and English alike.
+
+**Connect the services you already use.** Paste a link, an install command, or just the name of an MCP server
+or skill into the chat; the system finds the official one, checks whether it needs a key or OAuth, and puts up
+a card for you to press. Every install needs a person to press it. The MCP library in the app shows each
+server's measured tool count and tokens before you install. Built-in account connections are n8n and Windmill
+(the `automation` agent builds and edits workflows — read the limits in
+[How the system works](#how-the-system-works) before you rely on it), Meta (the `ads` agent reads ad accounts,
+`content` posts to Pages) and YouTube (the `youtube` agent uploads clips).
+
+**A companion that lives on your desktop.** The robot mascot is drawn from code, has poses for what the
+assistant is doing, greets you by name and reads its finished answer aloud. Keep it in the window, or let it
+out onto the desktop as a real Win32 window you can drag to any monitor.
+
+<details>
+<summary>Use the assistant from Telegram or Discord</summary>
 
 Open **Yours → Connections**, then choose Telegram or Discord:
 
@@ -146,135 +205,434 @@ Open **Yours → Connections**, then choose Telegram or Discord:
 3. Aetox shows a one-time `/pair 123456` command after connecting. Send it from the Telegram chat
    or Discord channel you want to authorize (mention the bot when pairing in a Discord server).
 
-This is another doorway to Aetox's real main assistant, not a separate bot assistant: it uses the
-Assistant desk's identity and tools, and a new conversation starts with the current default model. Each paired Telegram chat or Discord
-channel keeps its own conversation history instead of appending to the chat currently open in the
-desktop window. The bot accepts messages only from the paired conversation; every member of that
-conversation can use it. Mention it in Discord server channels; DMs work directly. Use `/new` to
-start with fresh context. Tokens and pairing data are encrypted at rest, and listeners run only
-while Aetox is running.
+This is Aetox's real main assistant, not a separate bot: it uses the Assistant desk's identity and tools. Each
+paired chat or channel keeps its own conversation history. The bot accepts messages only from the paired
+conversation; mention it in Discord server channels, while DMs work directly. Use `/new` to start with fresh
+context. Tokens and pairing data are encrypted at rest, and listeners run only while Aetox is running.
+
+</details>
+
+## The Code door
+
+*Build, debug, and ship* — the second door is a workshop, not a chat with a coding mode switched on. It is
+bound to the project folder you open and has working rules of its own: a turn ends when the work is done, not
+when a plan for it is written; done means proven by execution; new work has a test in the project's own suite;
+and after the narrow test comes the project's full check.
+
+> **What the system does for the model at this door**
+> - Asks the language server where an identifier is declared, who calls it, and what a change would affect
+> - Loads an `.html` page it just wrote at desktop and phone width, light and dark, and reports what to fix
+> - Hands the model the result of a command that has been still for 2 minutes, instead of waiting out the timeout
+> - Sends back an answer that says itself the work is unfinished, to be finished
+> - Keeps history already sent unchanged, so the provider's cache holds every round
+> - Snapshots files before every turn edits them with shadow-git, so any turn can be undone
+
+### Two modes: Agent · Editor
+
+The switch in the top bar changes mode at once. Each mode is a desk of its own with its own chat list, bound to
+the same project.
+
+The mode switch can be folded into a small tab that still names the mode and shows whether the chat is working
+or waiting on you. Git now has fetch, pull and push, ahead/behind counts, a branch graph, and a menu for opening
+or creating worktrees. A pull starts with fast-forward; a diverged branch offers rebase or merge.
+
+**Agent — the agent works, you watch the workbench.** The chat sits on the left and the workbench on the right:
+a real ConPTY terminal with unlimited tabs, the browser the agent drives, the file tree, Git with the commit
+timeline on the same page, and a code map.
+
+- **Find out why a test is flaky** — it greps the repo, runs the suite in a terminal tab you are watching,
+  reads the failure, and edits the file.
+- **Know what a name is before you trust it** — `codebase` asks the language server instead of a text search
+  that has to guess.
+- **See the shape of a repository you did not write** — a code map of the whole tree, with `grep` and `glob`
+  across all of it.
+- **Write a page and know at once where it breaks** — the check comes back with the write: a broken script,
+  text under AA contrast, a page wider than the phone, a dark mode still light underneath, Thai marks that float
+  or collide, and controls too small to tap.
+- **Read a diff without leaving the conversation** — expand a tool row and the change shows as git hunks.
+
+**Editor — you write, Aetox helps.** The file sits in the centre in Monaco, the right panel holds the agent,
+Explorer, Git and deliverables, and terminals dock below. There is no extension market, so everything is built in.
+
+- **Ctrl+K to edit in place** — a few words under the selected lines; the answer comes back as hunks you keep or
+  revert one at a time.
+- **Completions from any model** — DeepSeek, OpenAI-style and Ollama FIM endpoints, or any chat model, set
+  separately from the chat's model.
+- **Language servers behind the editor** — completion, hover, go-to-definition, a problems list and symbol
+  search. The languages page is a catalogue of 44 servers, installed through a toolchain or downloaded from the
+  server's own release with its SHA-256 checked.
+- **Git in the editor** — changed lines in the gutter, blame on the cursor line, a side-by-side diff against
+  HEAD, and committing hunk by hunk without touching the real index a shell may be using.
+- Split view · run the test under the cursor · replace across the project · `.editorconfig` · format on save ·
+  SQLite files open as read-only tables
+
+### Long runs that actually finish
+
+Real coding work runs for tens of minutes, and what brings it down is mostly not the model but what surrounds it.
+
+<details>
+<summary>How the system keeps long runs from hanging or failing, and why GitHub work lives with the github agent</summary>
+
+- **A still command does not stall the turn** — "still" means no output, no CPU and no change in the process
+  set, so a quiet compile that is still working is not counted as hung. Shell output is capped at 30 KB,
+  keeping both the head and the tail, so one huge log does not make every later request dearer.
+- **Dropped connections and 5xx really retry** — a failed DNS lookup or a cut connection retries at the
+  connection layer and again at the turn layer; a 5xx backs off and retries at 2, 5 and 10 seconds instead of
+  ending the turn in a fraction of a second.
+- **Long sessions cost less** — tool results are plain text, re-reading lines still in the conversation says
+  where they are instead of sending them again, and grep cuts between results, never through one.
+
+GitHub work — searching repositories, reading and opening pull requests, reading CI, commenting — goes to the
+`github` agent, which holds those tools. The Code desk stopped carrying GitHub and connected-service tools on
+every request: in 30 days they were never called, yet they cost about 1.4k tokens every round. Merge and close
+are deliberately absent: closing an argument is one click on a page you already have open. This desk also
+deliberately has no document or spreadsheet writer, no OCR and no PDF or audio reader; a deck *about* code is
+the Assistant door's job.
+
+</details>
+
+### Aetox CLI — the Code desk in your terminal
+
+Type `aetox` in any folder to open the Code desk full screen: tools run above the prompt, permission cards are
+answered in place, and you can type while it works.
+
+```text
+aetox                       full screen (--plain for line by line)
+aetox chat "goal"           one turn, the answer on stdout, for scripts
+aetox login codex           sign in to a provider (codex, copilot, ...)
+aetox --whole-machine       tools reach the whole machine, credential stores stay closed — for disposable containers or VMs
+aetox --report runs.jsonl   append one JSON line per turn: rounds, tokens, cost, seconds, tools
+```
+
+The CLI has [its own installer](#install), separate from the app. When the app is installed, the CLI uses the
+app's engine, keys, chats and memory; without it, the CLI uses its own engine. It tells you when a new release
+is out. This CLI is the build the coding benchmark measures.
+
+### Coding results
+
+On the same models, against OpenCode · Codex CLI · omp · pi over 395 runs, Aetox leads on secure code on both
+models and on long multi-turn coding on GPT-6 Luna. It trails on Web-Bench and on long multi-turn coding on
+GPT-5.6 Terra, and the price is more time and more tokens — the full tables are in [Measured results](#measured-results).
+
+## The Team door
+
+*Arrange, start, and watch* — the third door is where Aetox stops being one assistant and becomes an
+organisation. You talk to one **secretary**. The secretary has no hands and no shell: it takes the order, asks
+when it must, decides which level the work should reach, hands it on and reports back. It never redoes the work
+itself and never rewrites your words into a brief of its own.
+
+> **What the system does for the model at this door**
+> - Delivers your words to the head at every level verbatim, never rephrased
+> - Gives heads no run slot, so a department hands work to three teams and a company to three departments at once
+> - Counts how many times a head sends work back, instead of asking for a limit in the prompt
+> - Carries company and department rules and context to the heads along the route the work took; members get only what they need
+> - Lets every agent use its own model, so the cost follows each agent's work
+> - Checks the organisation's shape: departments with no head, teams never used, agents holding the same tool set
+
+### Three levels, each with a head that thinks
+
+| Level | Made of | What the head does |
+|:---|:---|:---|
+| **Team** | a team head + agents | Takes the whole job, splits it into plain sentences, one non-overlapping deliverable per member, and judges what comes back |
+| **Department** | a department head + teams | Broad work within one domain, handed to several teams at once; a team may belong to several departments |
+| **Company** | a company head + departments | The whole picture, handed to departments or straight to a team; founded once three departments have heads |
+
+The secretary picks **the lowest level that can own the job**: clear work for one team goes straight to that
+team, broader work goes up to a department or the company. No level is a forced pass-through, because going
+higher than the job needs costs a round and gains nothing. Members receive only their head's order and their
+own seat in the team, and the team's rules reach everyone in it.
+
+### Watch the work at every level
+
+- **The card in the left bar sets where you stand** — team, department or company. The secretary is told on
+  every message; changing level starts a new chat. History stays one list, each row labelled with where it started.
+- **Delegated work is one tree in the chat** — the head on top, members below, each row saying what it is doing
+  with a stop button of its own. A question appears under whoever asked it and is answered right there; click a
+  row to open the full work in the right panel.
+- **Deliverables are real files** — in the team's folder or the focused project, and they show up as cards in
+  the secretary's answer.
+- **The company room** — the right panel is a 3D office with a campus or tower map (a 2.5D room on machines
+  without WebGL). Each agent sits at a desk and moves with the tool it is using, heads have their own desks and
+  ranks, finished work is carried off to delivery, time of day follows your clock, and a board shows done today
+  · working · waiting on you.
+- **The workroom** — save a pipeline where each step names the team that takes which piece; start it and it
+  walks step by step, and a step that stops to ask resumes once you answer.
+- **A web console** — the `:8317` page on your machine configures teams, departments and companies, and has a
+  simulated phone that chats with the secretary through the same chat as the window.
+
+### The organisation is plain files
+
+Every level is markdown on disk, managed under **ตั้งค่า › องค์กร** (Settings › Organisation), which draws the
+whole organisation as a tree, checks its shape, and summarises what each team has spent.
+
+```text
+<DataRoot>/teams/<name>/TEAM.md                head · members · each member's seat · ## team rules
+<DataRoot>/departments/<name>/DEPARTMENT.md    department head · teams · ## department context · ## department rules
+<DataRoot>/companies/<name>/COMPANY.md         company head · departments · ## company context · ## company rules
+```
+
+The installer seeds one team, **ทีมคอนเทนต์** (the content team). Everything else you create from Settings or
+from template sheets that fill in identity, way of thinking and duties, with recommended MCP servers per role.
+Twenty-one people ship with the app to choose from:
+
+| Role | Ships with the app |
+|:---|:---|
+| Team heads | `lead` `producer` `planner` `headwriter` `director` `publisher` |
+| Department heads | `chief` `showrunner` |
+| Company head | `boss` |
+| Working agents | `ads` `automation` `content` `deepresearch` `doc` `editor` `github` `scriptwriter` `sheet` `video` `web` `youtube` |
+
+### One agent is one folder
+
+Hiring someone new is dropping a folder into `<DataRoot>/agents/` — no release, no plugin API, no restart. The
+folder is the agent's whole identity: `AGENT.md` (who it is, which tools it narrows itself to, which model it
+pins, and `role: head` for a head), `MEMORY.md` (what it has learned), `STARTERS.md` (how an empty chat with it
+opens) and a private `skills/` folder no other agent can see.
+
+That folder is where a clever assistant and an organisation part ways. Each agent pins **its own model, at its
+own provider**, so the one that opens twenty pricing pages can run on something cheap while the one that weighs
+what was found runs on something strong, and the bill follows the work instead of the hardest task in it. Each
+keeps **its own memory**, so what the research agent learned about a source does not leak into the document
+agent's judgement about a contract.
+
+Agents work for you outside the Team door as well. At the Assistant and Code doors, the assistant hands work to
+the agents that chat may delegate to (set under ตั้งค่า › สิทธิ์มอบงาน, Settings › Delegation), or you can talk
+to an agent directly in the specialist room. Separately there are two **sub-agents** (`explore`, `general`):
+internal helpers, a fixed set that cannot be extended by design, though you may tune each one's model,
+provider, prompt, step ceiling and look.
+
+## Which models it works with
+
+**28 external providers, and the window shows every one** — OpenAI · OpenAI-compatible (your own endpoint) ·
+Anthropic · Gemini · DeepSeek · Qwen · Z.ai · OpenRouter · Codex · Groq · Mistral · Kimi · MiniMax ·
+Xiaomi MiMo · Xiaomi MiMo Token Plan · xAI · Meta · ThaiLLM · ModelScope · NVIDIA · GitHub Copilot · Kilo ·
+Ollama Cloud · OpenCode Zen · OpenCode Go · LM Studio · Ollama · 9Router (Xiaomi MiMo and its Token Plan count
+separately because they use different endpoints and keys). On top of those, the built-in `aetox` trial provider
+is not counted among the 28. ChatGPT (Codex), GitHub Copilot and OpenRouter sign in; the rest take an API key or
+a local server address. An endpoint you add yourself chooses its API shape (openai · anthropic · responses).
+
+Local models are first-class: Aetox asks LM Studio and Ollama which model is *loaded*, streams both the answer
+and the reasoning, makes real tool calls, and counts tokens into the same statistics. You can switch provider or
+model mid-conversation and the whole context comes along — tool calls, results and compacted summaries, not just
+the visible messages. Aetox never quietly reroutes your turn to another provider you happen to pay for. Model
+lists, API versions and reasoning levels are asked of the provider at run time rather than written into the
+code, so a new model shows up without waiting for a new Aetox.
+
+Settings has an independent on/off switch per model: turning one off hides it from pickers without changing a
+chat already using it. Stars are favourites. Search covers the full list while only a window of rows is drawn.
+Under **Agents → Overview**, see who uses a separate model and edit it in the row; everyone else follows the
+chat. 9Router, LM Studio and Ollama have setup cards showing installation, server and model/key status.
+
+## Measured results
+
+The rules are in [BENCHMARK.md](docs/reports/BENCHMARK.md), and the one rule it enforces is that a number that
+has not passed them does not appear here or on the website.
+
+> **Read this before the numbers.** All coding results come from
+> [the coding-harness-1.9.3 report](docs/reports/coding-harness-1.9.3), which we measured ourselves: 11 tasks ×
+> 2 models × 3 rounds, 395 runs. Every task is judged by hidden tests, every harness receives byte-identical
+> messages, and none carries user skills or settings. The models are `gpt-6-luna` and `gpt-5.6-terra` at medium
+> reasoning, through the same ChatGPT (Codex) account for every harness. Aetox 1.9.3 was measured after the
+> others, so the provider side may have changed during the day. Some suites are small, and this is not a ranking
+> across all work. The method, every round's score, and where Aetox loses are in the full report.
+
+These tables describe **1.9.3**. The later [direction study](docs/reports/harness-direction-2026-09-30.md) does
+not establish an overall improvement or a no-regression result for 1.9.4.
+
+Mean of 3 rounds · bold = best in the column for that model
+
+**GPT-6 Luna · medium reasoning**
+
+| Harness | SlopCodeBench<br>% tests passed | SlopCodeBench<br>checkpoints fully passed | SWE-bench ML<br>resolved (1 task) | SWE-bench ML<br>per bug report † | Web-Bench<br>tasks passed | CWEval<br>func-sec@1 | CWEval<br>func@1 | Thai tasks \* | Time<br>(min) | Tokens<br>(M) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Aetox 1.9.3 | **91.8%** | **4.0 / 14** | 33% | **100%** | 5.0 / 6 | **97.8%** | **97.8%** | **100.0%** | 47 | 5.7 |
+| OpenCode 1.18.32 | 90.8% | 3.7 / 14 | **67%** | **100%** | 4.3 / 6 | 66.7% | 86.7% | 94.1% | 46 | 3.4 |
+| Codex CLI 0.157.1 | 86.9% | 2.3 / 14 | 33% | 67% | 5.0 / 6 | 66.7% | 88.9% | 97.8% | 30 | 2.1 |
+| omp 18.3.4 | 88.7% | 2.3 / 14 | 33% | 67% | 4.5 / 6 | 68.9% | 86.7% | 88.9% | 45 | 4.5 |
+| pi 0.87.1 | 87.8% | 2.3 / 14 | 33% | **100%** | **5.3 / 6** | 64.4% | 86.7% | 94.1% | 29 | 0.8 |
+
+**GPT-5.6 Terra · medium reasoning**
+
+| Harness | SlopCodeBench<br>% tests passed | SlopCodeBench<br>checkpoints fully passed | SWE-bench ML<br>resolved (1 task) | SWE-bench ML<br>per bug report † | Web-Bench<br>tasks passed | CWEval<br>func-sec@1 | CWEval<br>func@1 | Thai tasks \* | Time<br>(min) | Tokens<br>(M) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Aetox 1.9.3 | 92.2% | 6.0 / 14 | 67% | **100%** | 5.3 / 6 | **95.6%** | **95.6%** | **100.0%** | 81 | 9.1 |
+| OpenCode 1.18.32 | **92.8%** | **6.7 / 14** | 33% | **100%** | 5.0 / 6 | 77.8% | 93.3% | 93.3% | 63 | 5.1 |
+| Codex CLI 0.157.1 | 91.5% | 5.3 / 14 | 67% | **100%** | 5.0 / 6 | 73.3% | 93.3% | 92.6% | 54 | 3.8 |
+| omp 18.3.4 | 86.4% | 5.3 / 14 | 33% | **100%** | **5.7 / 6** | 77.8% | 93.3% | 91.1% | 71 | 7.5 |
+| pi 0.87.1 | 91.3% | 6.0 / 14 | **100%** | **100%** | **5.7 / 6** | 77.8% | 93.3% | 95.6% | 46 | 1.8 |
+
+† SWE-bench ML is a single bug (caddy-6350) × 3 rounds; read it as a weak signal. The "per bug report" column
+uses the same tests minus the `remote_ip` case, leaving only what the bug report asked for · \* tasks written by
+the Aetox team, and Aetox ships a Thai skill; read apart from the standard suites
+
+The report's own summary:
+
+- **Where Aetox leads** — secure code (CWEval func-sec@1) on both models, with functionally correct code
+  (func@1) also highest on both · long multi-turn coding on Luna (SlopCodeBench), highest in % tests passed and
+  checkpoints fully passed · Aetox + Luna matches the others + Terra: SlopCodeBench 91.8% against 91.3–92.8%,
+  and higher security (97.8% against 73.3–77.8%)
+- **Where Aetox trails** — Web-Bench, where pi does slightly better on both models, as does omp on Terra ·
+  SlopCodeBench on Terra, where OpenCode leads in both % tests passed and checkpoints fully passed
+- **The price** — more time and more tokens: total tokens 1.2–7× the others, about 90% of them cached input;
+  the slowest on Terra (81 min against 46–71). Two reasons: Aetox checks its own work more, and its starting
+  prompt carries more rules for working with tools
+- **Not yet conclusive** — SWE-bench is one bug · Web-Bench differs by 1–2 tasks · the SlopCodeBench gap between
+  the leading harnesses is smaller than the spread between rounds
+- **Against 1.9.0** — faster (Luna 64 → 47 min · Terra 88 → 81 min) · better on CWEval security
+  (Luna 91.1 → 97.8% · Terra 93.3 → 95.6%), checkpoints fully passed on Luna (3.0 → 4.0) and SWE-bench per bug
+  report on Luna (67 → 100%) · lower on Web-Bench (Luna 5.7 → 5.0 · Terra 5.7 → 5.3) and SlopCodeBench on Terra
+  (94.3 → 92.2%)
+
+| Other reports | What they measure |
+|:---|:---|
+| [coding-harness-2026-09-27](docs/reports/coding-harness-2026-09-27) | The 1.9.0 edition against OpenCode · Codex CLI on the same tasks, with each task's prompt, source and licence |
+| [harness-direction-2026-09-30](docs/reports/harness-direction-2026-09-30.md) | 120 frozen-source experiments on two models; the retained fixes, rejected prompt trials and multi-turn regression are reported separately from the 1.9.3 comparison |
+| [SKILL-BENCH.md](docs/reports/SKILL-BENCH.md) | How much Aetox's skills actually help, skills on against off on the same model, including what did not move |
+| [TOKEN-AUDIT.md](docs/reports/TOKEN-AUDIT.md) | Where the tokens go in each request |
+| [TEST-REPORT.md](docs/reports/TEST-REPORT.md) | Tests by module |
+| [aetox-research-reasoning-evaluation.md](docs/reports/aetox-research-reasoning-evaluation.md) | Research and reasoning evaluation |
+| [PUBLISHED-NUMBERS.md](docs/reports/PUBLISHED-NUMBERS.md) | Where every published number appears, and where it was measured |
+
+<details>
+<summary>The app's own numbers (size, tests, start-up, RAM) — dated, not yet re-measured on 1.9.4</summary>
+
+The two size rows and the two test-count rows were measured on 2026-09-17 on v1.7.2; turn assembly on
+2026-08-13; the rows marked ⁽ᵈ⁾ on 2026-07-27 on v0.9.2, before the engine became a process of its own, so
+the process count is one lower than today. Every row is a dated figure, not a current one.
+
+| | |
+|:---|---:|
+| What you download | Installer, 34.6 MB |
+| What lands on disk | **83.4 MB** in two files — `aetox.exe` 50.9 MB + `aetox-engine.exe` 32.5 MB |
+| Assembling one turn | 0.32 ms · 174.9 KB allocated |
+| Go tests | 3,648 across 62 packages, none failing |
+| UI tests | 2,106 across 205 files, none failing |
+| First start (cold) | 1.77 s ⁽ᵈ⁾ |
+| Later starts | 0.53 s ⁽ᵈ⁾ |
+| RAM committed | 252 MB ⁽ᵈ⁾ |
+| Processes | 7 ⁽ᵈ⁾ |
+
+The old figures stay rather than being deleted, because on the day they were taken they passed the rules —
+which is the whole difference between an old number and an unusable one.
+
+Two things said plainly. Turn assembly was 0.12 ms and 96.2 KB when the block held 27 tools; it is 0.32 ms and
+174.9 KB now, because the block holds more. That is a real regression, and it is still three ten-thousandths of
+a second — the time you wait is the model thinking. And the size went from 48.5 MB in one file to 83.4 MB in two:
+the engine is its own file now, but the window still links the engine packages for types and forwarders, so the
+split added a binary without the first one shrinking. That is the real cost of splitting the engine out.
+
+**Against Zed**, the harsher yardstick — native Rust, and known for being light.
+
+| | Aetox | Zed |
+|:---|:---|:---|
+| First start (cold) | 1.77 s | 2.12 s |
+| Later starts | 0.53 s | 0.53 s |
+| RAM committed | 252 MB | 471 MB |
+| Size on disk | **83.4 MB** | 419 MB |
+
+Every cell except Aetox's size was measured on 2026-07-27 on the same machine under the same rules, and neither
+has been re-measured. Electron apps in this category ship 240 MB to 1 GB because each carries its own Chromium.
+Aetox uses the WebView2 Windows already has — and WebView2 *is* Chromium, so memory is not where it beats
+Electron; the win is that you do not keep a second browser.
+
+**How it was measured.** Size on disk: unpack the
+[portable zip](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-windows-amd64-portable.zip) and
+add the two files; other apps are measured from their install folder after installing, never from a download
+page · start-up, RAM and processes: `bench.ps1 -Start`, an empty project, median of 5 runs after discarding the
+first, read after 60 seconds idle; a true cold start needs a reboot first · turn assembly: `bench.ps1 -Engine`,
+median of 3 runs.
+
+**What was removed.** An earlier README published "97% of input tokens came from cache across six consecutive
+messages" and local time-to-first-token figures of 1.42 s and 1.75 s. Neither had a source in this repository —
+no test, no log, no BENCHMARK entry — so they were removed rather than dated.
+
+</details>
 
 ## Install
 
-Windows 10 or later, x64. **You do not need an API key to start** — a built-in `aetox` provider
-ships five test models that exercise the real machinery (real tool calls, a real delegation to a
-sub-agent, a long reasoning stream), so you can see what the app does before signing up for
-anything.
+Windows 10 or later, x64. **You do not need an API key to start**: the built-in `aetox` provider ships trial
+models that exercise the real machinery — real tool calls, real delegation, long streamed reasoning — so you see
+what the app does before signing up for anything.
 
-**Microsoft Store** — the one channel with nothing to click past. Microsoft signs the package, so
-there is no SmartScreen prompt and no antivirus warning, and Windows keeps it updated afterwards.
-One line, no web page in the way:
+| Channel | Install | Best for |
+|:---|:---|:---|
+| **Microsoft Store** | `winget install --id=9N4KKBRRSCZZ --source=msstore`<br>or the [Store page](https://apps.microsoft.com/detail/9N4KKBRRSCZZ) | Signed by Microsoft: no SmartScreen prompt, and Windows keeps it updated |
+| **Installer** | [aetox-amd64-installer.exe](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe) | Program Files with a Start-menu shortcut |
+| **Aetox CLI** | [aetox-cli-setup.exe](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-setup.exe) | The Code desk in your terminal; installs per user, no admin rights, adds itself to PATH, not in the Store |
 
-```powershell
-winget install --id=9N4KKBRRSCZZ --source=msstore
-```
-
-(To look before installing: `winget search aetox`. The Store source only answers an `--id` lookup
-with `--exact`, so `winget search --id 9N4KKBRRSCZZ --source msstore` comes back empty — a winget
-quirk, not a missing listing.)
-
-Prefer to click? [apps.microsoft.com/detail/9N4KKBRRSCZZ](https://apps.microsoft.com/detail/9N4KKBRRSCZZ),
-or paste `ms-windows-store://pdp/?productid=9N4KKBRRSCZZ` into Run (Win+R) to open the Store app
-straight away without the web page.
-
-**Installer** — [aetox-amd64-installer.exe](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe) (34.6 MB)
-
-Installs into Program Files with a Start menu entry. It carries its own files and nothing else:
-Tesseract, poppler, ffmpeg and the speech model are fetched later by the app itself, and only for a
-capability you tick.
-
-**Scoop**
+Other ways: Scoop for the app and the CLI, or a portable zip
+([app](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-windows-amd64-portable.zip) — keep both
+files together; the only channel that updates itself in place ·
+[CLI](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-windows-amd64.zip) — run
+`.\aetox.exe path add` once to put it on PATH).
 
 ```powershell
 scoop install https://raw.githubusercontent.com/Mikedev115/Aetox/main/scoop/aetox.json
-```
-
-**Portable** — [the zip](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-windows-amd64-portable.zip),
-unpack, run `aetox.exe`. Since 1.6.0 the zip holds two files — `aetox.exe` and `aetox-engine.exe`
-— and they stay together. This is the only channel that can update itself in place.
-
-**In the terminal** — `aetox` in any folder opens the Code desk full-screen: type the task, watch the
-tool calls land above the input, answer an approval card in place. A separate download, not part of
-the app above, so the installer and the Store package stay exactly as they are. The console is not
-in the Microsoft Store.
-
-[aetox-cli-setup.exe](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-setup.exe)
-— installs "Aetox CLI" into your user folder (no administrator rights) and puts it on your user
-`PATH`; open a new terminal and type `aetox`. Remove it from Settings → Apps → Aetox CLI. Or with
-scoop:
-
-```powershell
 scoop install https://raw.githubusercontent.com/Mikedev115/Aetox/main/scoop/aetox-cli.json
 ```
 
-or [aetox-cli-windows-amd64.zip](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-windows-amd64.zip)
-— unpack anywhere and run `.\aetox.exe path add` there once to put that folder on your `PATH`.
-When the app is installed on the same machine the
-terminal uses the app's engine and shares its keys, chats and memory; without the app it runs the
-engine that comes in the zip. `aetox chat "task"` is one turn with the answer on stdout, for
-scripts; `aetox --plain` is the line-by-line console; `/help` inside lists every command.
+The installer carries only Aetox's own files. Tesseract, poppler, ffmpeg and the speech model are downloaded by
+the app later, only for the capabilities you tick. When the app is installed, the CLI uses the same engine, keys,
+chats and memory.
 
-> **Pick one channel and stay on it.** Windows gives a packaged app its own data folder, so a Store
-> install and an installer install are two separate Aetoxes on one machine, with separate settings,
-> history, memory and keys. Installing both is the quickest way to wonder where your chats went.
-
-### If SmartScreen or your antivirus complains
-
-**None of this happens on the Store build** — Microsoft signs that one. What follows is about the
-installer and the zip: two different warnings, two different causes.
-
-**"Windows protected your PC", unknown publisher.** The installer is not code-signed yet, so
-Windows has no publisher name to show for it — **More info → Run anyway**.
-
-**"Virus detected", or a name ending in `!ml` such as `Program:Win32/Wacapew.C!ml`.** A cloud
-machine-learning verdict, not a signature: nobody analysed this file and judged it dangerous. The
-`!ml` ending says so. It fires on what the file *is* rather than what it does — an unsigned binary
-whose hash the world has never seen before, which every release is by definition. Desktop apps
-built with Go and Wails hit this across the ecosystem; an empty Wails app with no code in it at all
-is [reported as the same detection](https://github.com/wailsapp/wails/issues/3308).
-
-The installer itself no longer fetches anything third-party. It did until v1.5.7, and that is what
-earned the original verdict; [the installer script](desktop/build/windows/installer/project.nsi)
-carries the whole story. Tesseract, poppler, ffmpeg and the speech model are now downloaded by the
-app, only for a capability you tick, each pinned to an immutable release tag and verified against a
-SHA256 compiled into the binary before it is used — a mismatch skips that component rather than
-proceeding.
-
-A verdict cleared with Microsoft applies to one file, and the next release is a different file, so
-it can come back until code signing exists. The portable zip is the way past it in the meantime.
-
-**The app opens but every provider list is empty, and the engine card says `ไม่พบ aetox-engine.exe`.**
-The same verdict, aimed at the second file in the install folder: on 2026-09-15 Defender's cloud
-model quarantined `aetox-engine.exe` from v1.7.1 as `Trojan:Script/Wacatac.C!ml`, five hours into a
-session, on a file that had not changed (`Trojan:Script/…` is the family Defender uses for an
-unsigned executable that starts shells — the engine does, on your behalf, which is its job). The app
-cannot answer anything without its engine, so the lists go blank. Open **Windows Security →
-Protection history**, find the entry, **Restore** and then **Allow on device** — Restore alone puts
-the file back for the next scan to take again — then press *เริ่มใหม่* on the engine card, or
-reinstall. Since v1.7.2 the engine carries a version block, manifest and icon like `aetox.exe`,
-`checksums.txt` lists the hash of each exe on its own so a restored file can be checked against a
-signed line, and that card names the likely cause instead of just the missing file.
-
-Releases *are* signed: an ed25519 public key is compiled into the binary and the updater verifies
-the signature over `checksums.txt` before it trusts a single hash. An empty or wrong key refuses
-the update rather than falling back.
-
-### Linux and macOS
-
-Not shipped as an app. The engine and the desktop package both compile and their suites run under
-`-race` on Linux and macOS in CI; the browser pane is stubbed and packaging is not done. What
-*does* ship for Linux since 1.6.0 is the engine alone — `aetox-engine-linux-amd64` and `-arm64` on
-every release — as the half that runs on a remote host under ตั้งค่า › เครื่องระยะไกล, driven by
-the Windows window over `ssh`.
-
-**1.0.0 is the Windows release.** Until 2026-08-15 this line read *"1.0.0 ships all three or it is
-not 1.0.0"* — that criterion was **changed by the owner, not met**. Holding a stable Windows build
-behind a browser pane and an at-rest keystore that do not exist yet on the other two helps nobody
-already running it. Linux and macOS ship under the same bar, in a later release. See
-[PLATFORM-SUPPORT.md](PLATFORM-SUPPORT.md) for where the port actually stands.
+> **Pick one channel and stay with it.** Windows gives packaged apps their own data folder, so the Store build
+> and the installer build are two different Aetoxes on the same machine — different settings, history, memory
+> and keys.
 
 <details>
-<summary>Build it yourself</summary>
+<summary>If SmartScreen or antivirus warns you</summary>
+
+None of this happens on the Store build — Microsoft signs that one. What follows is about the installer and the
+zip.
+
+**"Windows protected your PC", unknown publisher.** The installer is not code-signed yet, so Windows has no
+publisher name to show for it — **More info → Run anyway**.
+
+**"Virus detected", or a name ending in `!ml` such as `Program:Win32/Wacapew.C!ml`.** A cloud machine-learning
+verdict, not a signature: nobody analysed this file and judged it dangerous. It fires on what the file *is*
+rather than what it does — an unsigned binary whose hash the world has never seen, which every release is by
+definition. Desktop apps built with Go and Wails hit this across the ecosystem; an empty Wails app with no code
+in it at all is [reported as the same detection](https://github.com/wailsapp/wails/issues/3308). Everything the
+app downloads later is pinned to an immutable release tag and verified against a SHA256 compiled into the binary
+before use, and a mismatch skips that component. Until code signing exists, the Store build or the zip is the way
+past it.
+
+**The app opens but every provider list is empty, and the engine card says `ไม่พบ aetox-engine.exe`.** The same
+verdict, aimed at the second file (`Trojan:Script/…` is the family Defender uses for an unsigned executable that
+starts shells — the engine does, on your behalf). Open **Windows Security → Protection history**, find the
+entry, **Restore** and then **Allow on device** — Restore alone puts the file back for the next scan to take
+again — then press *เริ่มใหม่* on the engine card, or reinstall. `checksums.txt` lists each exe's hash on its
+own line, so a restored file can be checked.
+
+Releases *are* signed: an ed25519 public key is compiled into the binary and the updater verifies the signature
+over `checksums.txt` before it trusts a single hash. An empty or wrong key refuses the update rather than falling
+back.
+
+</details>
+
+<details>
+<summary>winget search finds nothing</summary>
+
+The msstore source only answers an `--id` search with `--exact`, so
+`winget search --id 9N4KKBRRSCZZ --source msstore` on its own returns nothing — a winget habit, not a missing
+listing. Use `winget search aetox`, or paste `ms-windows-store://pdp/?productid=9N4KKBRRSCZZ` into Run (Win+R)
+to open the Store app directly.
+
+</details>
+
+<details>
+<summary>Linux and macOS</summary>
+
+Not shipped as an app. The engine and the desktop package both compile on Linux and macOS; the browser pane is
+stubbed and packaging is not done. What ships for Linux on every release is the engine alone
+(`aetox-engine-linux-amd64` and `-arm64`), to run on a remote host driven by the Windows window over `ssh`.
+**1.0.0 is the Windows release**: the old criterion that 1.0.0 had to ship on all three platforms was **changed by
+the owner, not met**. See [PLATFORM-SUPPORT.md](PLATFORM-SUPPORT.md) for where the port actually stands.
+
+</details>
+
+<details>
+<summary>Build it yourself from the source in this repository (v1.7.0)</summary>
 
 ```powershell
 go build -o desktop/build/bin/aetox-engine.exe ./cmd/aetox-engine   # the engine, beside the window
@@ -284,547 +642,226 @@ wails build          # → desktop/build/bin/aetox.exe
 wails build -nsis    # with the installer
 ```
 
-The window looks for `aetox-engine.exe` beside itself first, then falls back to `go run
-./cmd/aetox-engine` inside a dev tree — `wails-dev.bat` builds it for you.
+The window looks for `aetox-engine.exe` beside itself first, then falls back to `go run ./cmd/aetox-engine`
+inside a dev tree — `wails-dev.bat` builds it for you.
 
 </details>
 
-## What you can do with it
+## Safety and your data
 
-**All of it happens on the same workbench you are watching.** One window holds four rooms —
-slides, browser, files and terminal — and the Code door adds two more: Git, which lays out the
-uncommitted working tree with a per-file diff, and Timeline, the project's commit history a page
-at a time. The agent does not work behind a curtain and hand
-you a file at the end: it opens a room, works in that room, and you can reach in and change
-something yourself without waiting for the turn to finish.
+- **Your data stays on your machine** — chat history, deliverables and browser data live on your disk. There is
+  no server of ours in between and no analytics; a cloud provider sees what its API normally sees.
+- **Keys and secrets** — keys are DPAPI-wrapped against your Windows account, and secrets are stripped before
+  they reach a log or before a tool result reaches the model.
+- **Three permission levels** — Ask · Unsafe only · Full access, and two things asked about at every level:
+  publishing anything outside, and stopping programs by name.
+- **Secret files are refused on every desk** — `.ssh`, `.aws`, the Windows credential stores, browser profiles
+  and Aetox's own key files cannot be opened by any tool.
 
-**It builds slide decks.** Give it the subject and what you want out of it, and the deck comes back
-as one self-contained `.html` file. Converting it is the app's work rather than the model's.
+<details>
+<summary>In detail: desks, the workspace, permissions, the shell scanner, and what is stored</summary>
 
-The deck is delivered when it opens in the slides room, not when it is exported — you page through
-it and present it full screen from there, and the export bar is on that same screen. It exports as
-`.pdf`, `.png` or `.jpg`: the PDF is the deck file itself through the renderer that draws it on
-screen, so it looks exactly like what you were just looking at, and images come out one file per
-slide into a folder of their own, named `01`, `02`, so a ten-slide deck sorts correctly everywhere.
-A slide's box is 1280x720, which is 13.333 x 7.5in at 96dpi — exactly PowerPoint's widescreen
-page.
+**A desk** is the tool ceiling of a session. There are five — `assistant`, `coding` (Code, Agent mode),
+`editor` (Code, Editor mode), `secretary` and `specialized` (a specialist agent). A chat's desk is fixed when it
+opens. MCP servers and external connections are placed per desk and per agent, so a tool installed for one kind
+of work does not show up in another — not hidden from the model, simply absent from that chat.
 
-**Watch it work in a real browser.** Not a headless scrape: a WebView2 window composited into
-the app, with an address bar, back/forward, DevTools, and eight device presets that resize the
-native window and zoom the page so CSS media queries genuinely fire.
+**The workspace.** With a project focused, the workspace is that folder plus any folder you add, which gets the
+same read and write rights as the root. With no project focused, the workspace is the machine and writes land
+under `output/<session>`. One function resolves every path, symlinks and all, and there is deliberately no
+second check anywhere else.
 
-The layer that drives it is ours. One read stamps a number on every interactive element on the
-page; click and type aim at that number. The agent hits the right control without a vision model
-and without guessing at coordinates, in the same tab you are watching.
-
-<img src="docs/assets/cap-browser.png" alt="The agent driving a page in the workbench browser" width="100%">
-
-**Build websites and systems.** Point it at a folder and the files room becomes a real place to
-work: file tree, Monaco editor, unlimited real PTY terminal tabs, `git`, `grep` and `glob` over
-the whole tree, plus `diagnostics` and `symbol` backed by language servers the app installs on
-first use (gopls, typescript-language-server, svelteserver). Write a page, then open it and look
-at the real thing in the browser room next door, without leaving the app to find somewhere to run
-it.
-
-**Hand over a folder and get a file back.** Point it at a directory of images, PDFs or
-recordings and ask for the thing you actually want. OCR (Thai and English), PDF text with the
-layout intact, and offline speech-to-text all feed the same conversation.
-
-**Read what the model cannot see.** `image_ocr` runs Tesseract with Thai and English, so a
-screenshot, a scan or a photographed form becomes text a 9B/35B model can reason about — no vision
-model required, and the model that *can* see gets the image itself instead.
-
-<img src="docs/assets/cap-image-ocr.png" alt="OCR pulling Thai text out of an image" width="100%">
-
-**Delegate to a specialist.** Pick `@doc`, `@sheet`, `@deepresearch` or `@video` off the `+`
-menu — typing the characters does nothing, on purpose, since the day a pasted draft that merely
-quoted `@reviewer` sent a whole brief to the wrong worker — and your sentence reaches that agent
-word for word, not a paraphrase. The menu lists the team this chat hires from. Each agent is a
-folder on disk with its own prompt, its own memory, optionally its own provider and model, and its
-own private skills.
-
-**Give it a job, not a step.** Work that takes twenty moves is planned before it is worked, and
-`todo_write` puts that plan on screen while it runs, so what you watch is the order it chose
-rather than a spinner. Up to four specialists run at once: `task` hands work out and returns
-immediately, `task collect` picks it up, so three jobs cost the time of the slowest rather than
-the sum. One that reaches a decision it should not make alone comes back as a *question* instead
-of a guess. One still working when your answer arrives keeps working — you collect it by the same
-id in a later turn, so the end of a turn is not a deadline. And before any of it runs there is a
-planning stance that can read anything and change nothing, on an allow-list, so a tool added next
-month is held back by default rather than slipping in.
-
-Run on 2026-08-15, from one sentence — *"find 20 CRMs a Thai SME could actually pick and give me
-a spreadsheet comparing them"*: **6m 51s, two agents, 42 tool calls between them** — 8 by the
-assistant, 27 by `deepresearch` reading pricing pages, 7 by `sheet` — and one tool failure it worked
-around. The handoff between the two was the baton this README describes: `deepresearch` left a
-markdown report in the session's output folder and `sheet` was given the path, not the contents.
-Twenty rows came back, fourteen with a real numeric price sorted low to high, and
-**six deliberately left blank** with the reason written in beside them — quoted-only pricing, or
-a page that would not state a figure. Every row carries the date the page was read and the link
-the number came from, and says whether the page was opened in the browser or only searched. The
-blanks are the part worth trusting: a table with no gaps in it is a table that guessed.
-
-**Ask it about your own past work.** Every conversation and every tool run lives in local SQLite
-with FTS5, so `session_search` across months of history is a query, not an inference — zero
-tokens, Thai and English alike.
-
-**Have it build automations in n8n or Windmill.** Connect an instance you host and the automation
-agent lists, reads, creates and updates workflows in it, and can start the server for you from a
-command you saved. Read [the honest limit](#automation-what-it-can-and-cannot-do) before you rely
-on this.
-
-## Two doors, one app
-
-One switch on the wordmark moves between **Assistant** ("Use, remember, and create") and **Code**
-("Build, debug, and ship"). It is the same binary, the same data directory, the same settings,
-memory and permissions — switching doors is not switching apps, and the app remembers which one
-you were in. The door also scopes the chat list in SQL, so a run of coding sessions cannot starve
-the other list.
-
-|  | Assistant | Code |
-|:---|:---|:---|
-| **Where it works** | Your whole machine when no project is focused, or a project folder plus folders you add | The project folder you opened, plus folders you add |
-| **Rooms** | Assistant · Capabilities · Projects · Specialist agents · Video work · Work | Code, with Git and Timeline as tabs |
-| **The right-hand panel** | Available | Available |
-
-The doors separate what the *system* carries, never what the AI is willing to do. The assistant
-has files and a shell and does software work with them; it does not hand a request back because
-it involves code.
-
-A third door, **Aetox Team**, is built but **not open in this build**. It has one room, the
-**Workroom** — a run written down: the steps a job goes through, and which agent sits at each one.
-That page opens and says plainly that the work behind it is not built yet, rather than drawing a
-list it does not have.
-
-## The Code door
-
-The second door is a workshop, not a chat with a coding mode switched on. It opens onto one room,
-**Code**, rooted at the project folder you opened — in this door a project is a fence, where the
-assistant's project is a folder for conversations. Same binary, same settings, same permissions;
-what changes is the ceiling of tools and the room you are standing in.
-
-What you get done in it, all of it on a workbench you are watching:
-
-- **Find out why a test is flaky** — it greps the repo, runs the suite in a real terminal tab,
-  reads the failure, and edits the file.
-- **Know what a name is before you trust it** — language servers the app installs itself report
-  the errors, and a symbol lookup says what an identifier is, where it is declared, and every place
-  that references it. Exact where a search guesses.
-- **See the shape of a repository you did not write** — a code map of the tree, with `grep` and
-  `glob` over all of it.
-- **Open a pull request and read its CI** — per-file diffs with the checks beside them. Merge and
-  close are deliberately absent: closing an argument is one click on a page you already have open.
-- **Undo the last turn** — shadow-git reverts what the previous turn touched.
-- **Read a diff without leaving the conversation** — expand a tool row and the change in that cell
-  shows as git hunks. This is the door that does it.
-
-The workbench beside the chat is where it happens — a real terminal, the browser the agent
-drives, the file tree and a single-file editor, git status against HEAD with `+N −M`, a map of the
-code, and a pull-request room. Behind the file tabs a Monaco editor; behind the terminal tabs a
-real ConPTY.
-
-**What is deliberately not on this desk:** no document or spreadsheet writer, no OCR, no PDF or
-audio reader. A deck *about* code is the assistant's door.
-
-## The team
-
-Seven agents ship — `doc`, `sheet`, `github`, `automation`, `deepresearch`, `editor`, `video` —
-and hiring an eighth is dropping a folder into `<DataRoot>/agents/`. No release, no plugin API, no
-restart.
-
-An agent's folder is its whole identity: `AGENT.md` (who it is, what desk it sits at, which tools
-it may narrow itself to, which model it pins), `MEMORY.md` (what it has learned), `STARTERS.md`
-(how an empty chat with it opens, per language), and a private `skills/` folder no other agent
-can see.
-
-That folder is also where the difference between a clever assistant and a company sits. Each
-agent pins **its own model, at its own provider**, so the one that opens twenty pricing pages can
-run on something cheap while the one that has to weigh what it found runs on something strong,
-and the bill follows the work instead of following the hardest task in it. Each keeps **its own memory**, so
-what the deepresearch agent learned about a source does not leak into the document agent's judgement
-about a contract. A single generalist has one model, one memory and one set of tools for every job
-it will ever be handed — and no way for you to add an eighth colleague to it.
-
-You can **delegate** to one — the assistant calls `task` and up to four run concurrently — or you
-can **talk to one directly**, in a session bound to its tools, its memory and its prompt. `@name`
-from the composer is the third door: your sentence arrives verbatim, mention included, because a
-paraphrase is where the request goes wrong.
-
-Agents are hired through **teams**. A team is a list of agents bound to one desk
-(`<DataRoot>/teams/<name>/TEAM.md`), each side of the app — ผู้ช่วย and โค้ด — has its own teams,
-and a chat hires from one team for its whole life, or from none. The app seeds one team,
-ผู้ช่วยในคอมพิวเตอร์, and after that it is an ordinary file you can rename, trim or delete. Teams
-are managed under ตั้งค่า › ทีม; the chip beside the composer says who answers and which team
-it hires from.
-
-Agents never call each other. The star has one centre; multi-step work is a conveyor through the
-assistant, and the baton is a file path rather than the content. Separately, two **sub-agents**
-(`explore`, `general`) are internal helpers — a fixed set, not extensible,
-deliberately, though since 1.6.0 you may tune one: its model and provider, its prompt, its step
-ceiling and its look, never what it can reach.
-
-## What it learns, and what you approve
-
-Aetox remembers across sessions, and **nothing is written without you approving it.**
-
-The `memory` tool cannot write. It queues a proposal. Separately, a summarizer reads the tool-run
-log with no model call at all, clusters repeated failures by agent + tool + normalised error, and
-proposes a lesson once the same mistake has happened three times.
-
-Everything lands in one review queue in Settings, and each card shows the body, the agent's stated
-reason, whose memory it would go into, and — for a replacement — the line it would overwrite.
-Approve or discard. What is kept is plain markdown you can open, edit line by line, or forget in
-place, and every decision is recorded permanently, so *"why does it think that?"* always has an
-answer. One switch turns the whole thing off. Since 1.6.0 the door also remembers what you decided:
-a fact you declined is not proposed again in other words, one already kept is not asked twice, and
-the model is told what is pending and what was refused. Memory is kept per desk — `MEMORY.md` is
-the assistant's, the Code desk has its own file — and every label says which desk reads it.
-
-It takes effect from the next session, not this one — a mid-conversation prompt change would
-invalidate the provider's prefix cache, which is the same reason the tool block never moves.
-
-The other half is **standing instructions**: your own always-on markdown files that ride into
-every desk, every project and every agent. What you wrote, and what it worked out, are kept apart
-on purpose.
-
-## How it works, and what it can reach
-
-A **desk** is the tool ceiling of a session. Three ship — `assistant`, `coding`, `specialized` —
-and a session's desk is fixed for its life. Desks are also what MCP servers and external
-connections are placed on, which is how a tool installed for one kind of work stays out of the
-others.
-
-**Two processes.** Since 1.6.0 the window is a screen and `aetox-engine` is where everything
-happens — the model loop, the files, the shell, MCP, the database — spoken to over one socket even
-on the same machine. The window keeps the things that are the machine's: the browser pane, computer
-use, dialogs, the voice, and every provider key. The engine never holds a key; it hands each request
-to the window to sign, and the window signs only for hosts it knows belong to that provider. That
-split is what lets the engine run on a Linux host over `ssh` with the same code and a longer wire.
-
-**Where it may go.** With a project focused, the workspace is that folder plus any folder you add
-— added folders get read and write with no prompt, the same rights as the root, because a second
-quieter tier would be a rule you never agreed to. With no project focused, the workspace is the
-machine, and writes land under `output/<session>`. One function resolves every path, symlinks and
-all, and there is deliberately no second check anywhere else.
-
-**Approval.** Three levels, and one gate every tool call goes through — built-in tools, shell and
-MCP alike.
+**Approval.** One gate that every tool call goes through — built-in tools, shell and MCP alike.
 
 | Level | What it asks about |
 |:---|:---|
 | **Ask** | Anything that is not a plain read inside the workspace |
-| **Unsafe only** | Deletes, `git`, shell, and anything touching a path outside the workspace |
-| **Full access** | Nothing. There is no carve-out. |
+| **Unsafe only** | Deletes, `git` changes, shell, anything touching a path outside the workspace, deleting things on an outside service, and tools that do not declare what they do |
+| **Full access** | Nothing, except the two below |
 
-MCP tools confirm at every level regardless, because their behaviour is defined by somebody else's
-server.
+Asked at every level, full access included: **publishing outside** (posting, sharing, sending, replying — from
+the browser or a connected account) and **stopping programs by name**, which would stop other programs with the
+same name too; a session stops what it started through its own handle. MCP tools are judged by what their server
+declares (read-only · adds · may delete), not by the name the server's author chose, and a tool that declares
+nothing counts as unknown, not as harmless.
 
-**Shell commands are path-contained**, not pattern-matched: a path hidden in a quoted argument,
-behind a flag, behind a redirect, or behind `%VAR%` / `$VAR` / `~` is still resolved and checked,
-and a command the scanner cannot read — `$(...)`, backticks, `-EncodedCommand`, `FromBase64String`
-— is refused rather than guessed at. Every command run is appended to a 0600 audit log.
+**The shell scanner** checks real paths rather than matching patterns, and reads each shell by its own grammar. A
+path hidden in quotes, behind a flag, behind a redirect, or behind `%VAR%` / `$VAR` / `~` is still resolved and
+checked. The PowerShell backtick is an escape, and a heredoc fed to a program is data. What it cannot read —
+`$(...)`, `${...}`, POSIX backticks, `-EncodedCommand`, `FromBase64String`, `Invoke-Expression` — is refused
+rather than guessed at. Every command run is appended to a 0600 audit log.
 
-**Refused to every file tool, in every mode:** `.ssh` `.aws` `.gnupg` `.azure` `.kube` `.netrc`
-`.git-credentials` `.config/gh` `.aetox`, the Windows Credentials and Protect stores, Chrome /
-Edge / Firefox / Brave profiles, and Aetox's own `credentials.json`, `oauth.json`,
-`account.json`, `mcp-servers.json`, `screen.json` (the remote hosts and the token that admits the
-window to an engine) and browser profile. Folder-picking refuses them too, so it fails at the door
-rather than as a confusing tool error later.
-
-**Your data.**
+**Refused to every file tool, on every desk:** `.ssh` `.aws` `.gnupg` `.azure` `.kube` `.netrc`
+`.git-credentials` `.config/gh` `.aetox`, the Windows Credentials and Protect stores, Chrome / Edge / Firefox /
+Brave profiles, and Aetox's own `credentials.json`, `oauth.json`, `account.json`, `mcp-servers.json`,
+`screen.json` and browser profile. Folder-picking refuses them too, so it fails at the door rather than as a
+confusing error later. The CLI's `--whole-machine` lifts the project wall but not this list. One exception,
+for deploys: a key inside `.ssh` handed to `ssh` / `scp` / `sftp` with `-i` or `-o IdentityFile=`, to
+`ssh-add`, or the same inside `rsync -e`, `GIT_SSH_COMMAND` and `core.sshCommand`, reaches the program — ssh
+uses the key and never prints it. Reading it, copying it, `-F` on it, or naming it anywhere else in the same
+line is still refused, and the local commands those settings and ssh's own options run (`ProxyCommand`,
+`LocalCommand`, `KnownHostsCommand`, with `%d` read as your home) are checked like any other command. A
+command that logs in to another machine — ssh, scp, sftp, rsync to a remote, autossh, mosh, ssh-copy-id,
+sshfs, and a `git push` over ssh — asks first in every mode, full
+access included; the card can trust that machine for good, and the trusted list lives under Capabilities ›
+Connections, where each one can be removed.
 
 |  | Where it stands |
 |:---|:---|
 | Chat history, tool runs, produced files | On your disk, in local SQLite and plain folders |
-| Browser data (history, cookies, session) | Stays on your machine only — no server of ours sits in between |
-| Cutting the cloud off entirely | Your data stays on your machine and in your country — run through LM Studio or Ollama and not a single byte leaves |
-| API keys | Their own file, 0600, DPAPI-wrapped against your Windows account. Off Windows there is no encryption at rest — that is stated rather than implied |
-| Secrets in logs | Stripped through one registry into all three sinks: debug log, shell audit log, and the buffer the bug-report form reads |
+| Browser data (history, cookies, session) | On your machine only |
+| Cutting the cloud off entirely | Run through LM Studio or Ollama and not a single byte leaves your machine |
+| API keys | Their own file, 0600, DPAPI-wrapped. Off Windows there is no encryption at rest — stated rather than implied |
+| Secrets in logs and tool results | Stripped through one registry: debug log, shell audit log, the buffer the bug-report form reads, and tool results before they reach the model |
 | MCP secrets | `${env:VAR}` indirection, so a key never lands in the settings file |
 | Taking it with you | Export any chat to `.md` or `.json`, and import a `.json` back into any Aetox |
 | Bug reports | The app transmits nothing. It prefills a GitHub issue, already scrubbed, and you read every line before sending it from your own account |
 
-There is no server of ours in the middle and no analytics. Using a cloud provider means that
-provider sees what its API normally sees, and nothing is routed through us.
+</details>
 
-## Everything it can do
+## How the system works
 
-A tool count is not a reason to use anything, which is why this is down here.
+In-depth detail and limits, for anyone who wants to check the system.
 
-**35 tools reach the model on a fresh install** — 34 from the engine and `browser`, which the
-window lends across the wire (§248); `computer` joins only once you switch it on. A default
-assistant session carries fewer, because a desk narrows the set. They cost about 10,700 tokens on
-every request before you have typed anything — the engine's 34 are about 9,900, against a ceiling
-of 10,400 tokens and 48 tools that a test enforces on that block, and the browser's definition is
-another ~830. Twelve of them are **packed** — one name in the block, several verbs behind it —
-which is why the list got shorter in v1.5.15 without anything being taken away. Re-measured
-2026-09-17 on v1.7.2.
+<details>
+<summary>Every tool the model receives</summary>
+
+The engine hands the model 33 tools on a fresh install, about 10,000 tokens on every request, against a ceiling
+of 10,500 tokens and 48 tools enforced by a test. Add `browser`, lent by the window, and `computer`, only when
+you switch it on. Each desk takes fewer, because the desk narrows the set. Many are **packed** tools — one name
+with several verbs inside. Measured 2026-09-29 on v1.9.3.
 
 | Group | Tools |
 |:---|:---|
 | **Files** | `change` *(write · edit · append · batch · delete)* `read` `search` *(list · glob · grep)* |
-| **Running commands** | `computer` *(list_apps · read · capture · focus · click · type · close — only once switched on in ตั้งค่า > การใช้คอมพิวเตอร์)* `desk_terminal` `git` `shell` *(run · output · kill · list)* |
-| **Handing back files** | `asset_find` `doc_write` `sheet_write` `video` *(new · check · render)* |
-| **Reading media** | `image_make` `media_read` *(image · video · audio)* `pdf_read` `video_project` |
-| **Web** | `browser` *(open · read · click · type · wait · back · scroll · capture · tabs · dialog · console · network · hover · drag · key · upload)* `media_fetch` `web_fetch` `web_search` |
-| **Code work** | `codebase` *(errors · symbol · impact · map · trace · design)* `rename` |
+| **Running commands** | `desk_terminal` `git` `shell` *(run · output · kill · list)* `computer` *(list_apps · read · capture · focus · click · click_at · scroll · drag · type · close — only when enabled under Settings › Computer use)* |
+| **Handing back files** | `asset_find` `doc_write` `sheet_write` `video` *(new · check · render · record)* |
+| **Reading and making media** | `image_make` `media_read` *(image · video · audio)* `pdf_read` `video_project` `voice_make` |
+| **Web** | `browser` *(open · read · click · type · wait · back · scroll · capture · tabs · dialog · console · network · hover · drag · key · upload · eval)* `media_fetch` `web_fetch` `web_search` |
+| **Code work** | `codebase` *(errors · symbol · impact · map · trace · design · page)* `rename` |
 | **GitHub** | `github` *(search · repo_summary · list_files · read_file)* `pr` *(list · read · checks · create · comment)* |
 | **How the assistant works** | `ask_user` `calc` `desk` *(open · list · close · focus)* `memory` `plan` *(write · amend · read · step · report)* `plugin_install` `session_search` `skill_view` `task` *(start · collect · answer · message · plan)* `time` `todo_write` |
 
-That table is generated from the registry the model is actually handed
-(`go test ./internal/engine -run TestPrintReadmeToolTable -v`, plus the two the window lends),
-because a hand-kept list of what a program contains is a second source of truth for a question the
-program can answer — and this one drifted for months, still naming tools that had been folded into
-`shell` and `github`.
-
-Connecting an automation engine adds one more packed tool — `n8n` *(list · read · create · update ·
-activate)* or `windmill` *(workspaces · list · read · create · update)* — and nothing until then:
-a tool with no account behind it is withheld rather than shown and refused.
-
-**Growth goes where it costs nothing.** A skill is a markdown document, not a tool: the prompt's skill index
-carries the names, grouped by area, and `skill_view` returns one body, so installing three hundred
-leaves the tool block exactly the same size. MCP servers are placed per desk and per agent, so a server added
-for video work is absent from an ordinary conversation — not hidden from the model, absent. Office
-writers reach only the specialized desk, so the assistant delegates for a `.pptx` rather than
-carrying three tools it rarely needs.
-
-**27 providers, and the window shows every one** — OpenAI · OpenAI-compatible (your own endpoint) ·
-Anthropic · Gemini · DeepSeek · Qwen · Z.ai · OpenRouter · Codex · Groq · Mistral · Kimi ·
-MiniMax · Xiaomi MiMo · Xiaomi MiMo Token Plan · xAI · Meta · ThaiLLM · ModelScope · NVIDIA · GitHub Copilot · Kilo · Ollama Cloud ·
-OpenCode Zen · OpenCode Go · LM Studio · Ollama · and the built-in `aetox`. ChatGPT (Codex), GitHub Copilot and OpenRouter
-sign in; the rest take an API key or a local server address. The catalogue and the picker used to disagree; they no longer
-do, because a provider the engine knows and the window hides is one nobody can reach.
-
-Local models are treated as first-class: Aetox asks LM Studio and Ollama which model is *loaded*
-rather than which exist, streams the answer and the reasoning, really calls tools, and counts
-tokens into the same statistics. You can switch provider or model mid-conversation and the full
-context follows — tool calls, tool results and compaction summaries, not just the visible text.
-One provider is active at a time; Aetox never silently reroutes your turn to a different paid one.
-
-### Automation: what it can and cannot do
-
-Connect an n8n or Windmill instance you host and the automation agent can list, read, create,
-update, and — n8n only — activate workflows, and start your server from a command you saved.
-
-**It cannot run a workflow and see the result.** There is no execution API call anywhere in this
-codebase; the closest thing is the agent clicking Execute in the vendor's own editor through the
-browser tool, which is not a verified run. Windmill has no activate either, so a flow it creates
-is saved and inert until you trigger it yourself. The agent says so out loud rather than implying
-otherwise, and a test exists whose only job is to keep it saying so.
-
-**There is no scheduler, and there will not be one.** Aetox has no cloud, so a schedule would
-silently depend on your laptop never closing. n8n and Windmill are the clock; Aetox is the hands.
-
-## When a turn goes wrong
-
-**An answer cut off by the output-token limit is continued.** A reply that hits the ceiling used to
-reach you stopped mid-word, with nothing anywhere asking for the rest. The turn now carries on up to
-three times and appends to what is already on screen, so one answer is watched being written rather
-than vanishing and starting over.
-
-**A tool call that names the same argument twice is refused.** A model asking for three searches
-sometimes writes two of them into one object — `{"query":"A","query":"B"}`. That is valid JSON, so a
-parser keeps the last and drops the first without a word: one search never runs, and the answer
-reports on it anyway. Aetox rejects the call and tells the model what was actually wrong with it,
-rather than letting a silent loss reach the answer.
-
-**A provider that returns nothing is an error, not an empty answer.** A turn 350 seconds in with
-eighteen tool results behind it once died on a round that came back without a single frame of text.
-That round is replayed twice — with whatever streamed taken back first — and only then does the turn
-change the question instead of asking a fourth time. Everything the turn had already done stays in
-context either way.
-
-**What a model can do only ever narrows the toolset, never widens it.** A model the catalogue has
-never described keeps every tool; one the catalogue says cannot call tools is narrowed. Wrongly
-withholding tools turns an agent into a chat window, so doubt is resolved in one direction only.
-
-## Measured, not claimed
-
-The rules are in [BENCHMARK.md](docs/reports/BENCHMARK.md), and its one standing rule is that a number which
-has not passed them may not appear here or on the website.
-
-> The dangerous number is the flattering one, because nobody audits a figure that makes them look
-> good.
-
-**Aetox.** The two size rows and the two test counts were re-measured 2026-09-17 on v1.7.2;
-assembling a turn is from 2026-08-13, and the ⁽ᵈ⁾ rows from 2026-07-27 on v0.9.2 — before the
-engine became a process of its own, so the process count in particular is one short of today.
-
-| | |
-|:---|---:|
-| What you download | 34.6 MB installer |
-| What ends up on disk | **83.4 MB**, two files — `aetox.exe` 50.9 MB + `aetox-engine.exe` 32.5 MB |
-| Assembling a turn | 0.32 ms · 174.9 KB allocated |
-| Go tests | 3,648 across 62 packages, 0 failures |
-| Frontend tests | 2,106 across 205 files, 0 failures |
-| First launch (cold) | 1.77 s ⁽ᵈ⁾ |
-| Every launch after | 0.53 s ⁽ᵈ⁾ |
-| RAM committed | 252 MB ⁽ᵈ⁾ |
-| Processes | 7 ⁽ᵈ⁾ |
-
-⁽ᵈ⁾ Measured 2026-07-27 on v0.9.2 under the rules, and **not re-measured since**. They are dated
-figures rather than current ones, and they are here rather than deleted because they did pass the
-rules on the day — which is the whole difference between an old number and a bad one.
-
-Two things that number honestly. Assembling a turn was 0.12 ms and 96.2 KB when the block held 27
-tools; it is 0.32 ms and 174.9 KB now that it holds more. That is a real regression, and it is
-still three ten-thousandths of a second — the time you wait is the model thinking. And the disk
-figure went from 48.5 MB in one file to 83.4 MB in two: the engine is now its own executable, and
-the window still links the engine package for its types and forwarders, so the split added a
-binary without yet shrinking the first one. That is a real cost of §248 and it is written down as
-one. The Go suite is green on Windows; **CI on Linux and macOS is red** — 16 tests on 2026-09-13,
-the port's unfinished edges (shell path rules, WSL, the window tools) rather than the engine.
-Since 2026-08-15 those two jobs are reported rather than gating — Windows is what ships, and one
-shared verdict meant every Windows push went red for a port's unfinished edges until nobody read
-the colour at all. The failures are still on the run page and still to be fixed; what changed is
-that they no longer hide the platform that is done.
-
-**Against Zed**, the harder ruler — native Rust, with a reputation for being light.
-
-| | Aetox | Zed |
-|:---|:---|:---|
-| First launch (cold) | 1.77 s | 2.12 s |
-| Every launch after | 0.53 s | 0.53 s |
-| RAM committed | 252 MB | 471 MB |
-| Disk | **83.4 MB** | 419 MB |
-
-Both columns except Aetox's disk figure were measured 2026-07-27 on the same machine under the same
-rules, and neither has been re-measured — Zed is no longer installed here. A tie on warm launch with
-a native Rust editor is the result worth having; treat the row as dated rather than current.
-
-The rest of this category ships 240 MB to 1 GB because an Electron app brings its own copy of
-Chromium. Aetox uses the WebView2 that Windows already has — and being straight about it, WebView2
-*is* Chromium, so the memory it holds is not a win over Electron. The win is that you are not
-handed a second browser to store.
-
-<details>
-<summary>How these were measured, and what does not qualify</summary>
-
-**Disk** — download [the portable zip](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-windows-amd64-portable.zip),
-unpack it, and add up the two files inside: `aetox.exe` 53,339,136 bytes and `aetox-engine.exe`
-34,120,192 bytes, 87,459,328 together. Anyone can reproduce it in a minute. It replaces the 48.5 MB
-single-file figure measured on 2026-08-25 on v1.5.7, which was correct then and is not now. Competitor sizes are measured after install from the install folder, never
-taken from a download page, and never from a folder holding user profiles or caches.
-
-**Launch, RAM and process count** — `bench.ps1 -Start`, empty project, median of 5 runs after
-discarding the first, read after 60 seconds settled. A true cold launch needs a reboot first,
-because Windows keeps the app's files in its file cache afterwards.
-
-**Assembling a turn** — `bench.ps1 -Engine`, median of 3 rounds.
-
-**What was removed from this section.** An earlier version of this README published "97% of input
-tokens came from cache over six consecutive messages" and local first-token times of 1.42 s and
-1.75 s. Neither has a source in this repository — no test, no log, no BENCHMARK entry — and the
-machine those local numbers describe did not have LM Studio installed. They are gone rather than
-date-stamped, because the rule above does not have an exception for numbers we would like to keep.
+The table is generated from the registry the model is actually handed (`go test ./internal/engine -run
+TestPrintReadmeToolTable -v`, plus the two the window lends), because a hand-kept list of what a program contains
+is a second source of truth for a question the program can answer. Connecting n8n or Windmill adds one packed
+tool — `n8n` *(list · read · create · update · activate)* or `windmill` *(workspaces · list · read · create ·
+update)* — and adds nothing before that.
 
 </details>
 
-### What the skills are worth
+<details>
+<summary>Skills and the MCP shelf: growing without paying on every request</summary>
 
-A skill is only worth shipping if the same model does the same job better with it. So the
-question was measured, not argued: the same model (`gpt-6-luna`, `gpt-5.6-terra`), the same 39
-tasks, Aetox with its skills on and with every skill placed off, and Codex CLI and OpenCode on the
-same model beside it. Every task starts from a fresh folder and a fresh data folder, is scored by a
-program rather than a person, and was proven scorable by a reference solution first; the hidden
-tests never enter the folder the model works in. Task sources: SlopCodeBench, SWE-bench
-Multilingual, Web-Bench, CWEval, SlidesBench, Terminal-Bench (adapted), and our own where no public
-set covers the job (Thai tax invoices, PromptPay, an outage with only the logs).
+Skills are markdown documents, not tools. The skill index in the prompt holds only names grouped by area, and
+`skill_view` returns the content when it is used. The shelf that ships with the app is down to 24 skills
+[measured to help real work](docs/reports/SKILL-BENCH.md), and every skill that changes must pass a three-way gate
+(off · natural · forced on) to stay.
 
-Only differences that held on every repeat are quoted here:
+MCP tools live on a **shelf**: the index carries only tool names or topic groups, one line per server, and the
+full definitions are sent the first time a chat reaches for them. A server with 212 tools therefore costs 135
+tokens instead of about 121k.
 
-| Task (runs) | Skill | Skills on | Skills off |
-|:---|:---|---:|---:|
-| Thai slide deck, Luna (3) | `aetox-slides` | **98** | 49 |
-| Thai slide deck, Terra (2) | `aetox-slides` | **97** | 29 |
-| Thai tax invoice, Luna (3) | `aetox-th-locale` | **100** | 94 |
-| Thai tax invoice, Terra (2) | `aetox-th-locale` | **100** | 85 |
-| Save a `/command` preset (6) | `aetox` | **5 of 6** | 0 of 6 |
+</details>
 
-And what did not move, stated with the same weight: a design-token page (Terra), a leaked-token cleanup,
-closing a branch and three unclear functions scored the same with skills on and off; a safe
-database migration scored slightly *lower* with the skill (Luna 83 vs 92, Terra 88 vs 100). Across
-all 35 scorable tasks, run once each on Luna, skills on scored 81 and off 77. Against the other
-harnesses, on 19 shared tasks run once: on Luna Aetox 86, OpenCode 82, Codex 75 — but Aetox with
-skills off also scored 86, so that lead is the harness, not the skills; on Terra Aetox 85, Codex 87,
-OpenCode 91, a loss we have not closed. Every task, scorer, run count, excluded run and changed
-threshold is in [SKILL-BENCH.md](docs/reports/SKILL-BENCH.md).
+<details>
+<summary>Automation: what it can and cannot do</summary>
 
-## Status — v1.9.3
+Connect an n8n or Windmill instance you host, and the `automation` agent lists, reads, creates and updates
+workflows in it, activates them on n8n, and can start the server for you from a command you saved.
 
-The core is in place. [Release notes](docs/release-notes/v1.9.3.md) ·
-[roadmap](ROADMAP.md).
+**It cannot run a workflow and read the result.** There is no execution API call in the code at all. The
+nearest thing is the agent pressing Execute in n8n's own UI through the browser, which is not a run it can
+verify. Windmill has no activation call either, so a flow it builds stays saved until you run it yourself. The
+agent says so plainly, and a test exists whose only job is to keep it saying so.
 
-Three things it does today that are worth knowing about:
+**The Mission Control page** on `:8317` now shows work across chats, deliverables, chat and scheduled jobs. Web
+chat actions are off by default, and Wi-Fi access requires pairing. Scheduled jobs run while Aetox is open;
+missed runs execute once when it reopens. This schedules Aetox conversations, not n8n or Windmill executions.
 
-- **A web page is checked every time it is written.** Writing or editing an `.html` file makes
-  Aetox load it at desktop and phone width, light and dark, and what needs fixing comes back with
-  the write: script errors, text under AA contrast, a page wider than the screen, a dark view that
-  stayed light, Thai whose marks float or overlap the next line, controls too small to hit. The
-  assistant no longer spends rounds opening the page to look.
-- **All 11 themes come in light and dark, and every one is readable.** Pick a family and let it
-  follow the system, set three colours of your own, turn the contrast, copy or import a theme as
-  one line; every colour pair is held to the same bar as the tests, whatever you choose. The
-  terminal takes the theme's colours, copies and pastes properly, and Ctrl+click opens a link or a
-  file at its line.
-- **Long sessions cost less.** The machine clock no longer knocks the history out of the cache
-  every turn, tool results are plain text, re-reading lines still in the conversation answers with
-  where they are instead of sending them again, and grep cuts between matches, never inside one.
-  Every browser tab has a *let the agent use it* button, so it is clear which tabs the agent can touch.
+</details>
 
-**Next** — one provider chain that switches accounts when a plan window is spent · external
-agent programs as engines (§258) · the personal secretary on the user's own Apps Script bridge ·
-a same-state RAM round for every app in the tour's last scene.
+<details>
+<summary>When a turn goes wrong</summary>
 
-## Documentation
+**An answer that hits the output-token ceiling is continued**, up to three times, appended to what is already on
+screen.
 
-Measurements and test results live in [docs/reports/](docs/reports/) — [Benchmark rules](docs/reports/BENCHMARK.md) ·
-[Test report by module](docs/reports/TEST-REPORT.md) · [Token audit](docs/reports/TOKEN-AUDIT.md) ·
-[Where every published number lives](docs/reports/PUBLISHED-NUMBERS.md) ·
-[Research & reasoning evaluation](docs/reports/aetox-research-reasoning-evaluation.md) ·
-[Harness database pilot](docs/reports/harness-database-pilot-2026-09-18.md) ·
-[What the skills are worth](docs/reports/SKILL-BENCH.md).
-Using and shipping: [First-run tour](docs/FIRST-RUN-TOUR.md) · [How a release is cut](docs/RELEASING.md) ·
-[Platform support](PLATFORM-SUPPORT.md) · [Roadmap](ROADMAP.md).
-Architecture, decision records and design standards are kept off this repository (`docs/internal/`, not published).
+**A tool call with a repeated parameter name is refused.** A model sometimes writes `{"query":"A","query":"B"}`,
+which is valid JSON, so the parser keeps the last and silently drops the first — one job never runs while the
+answer talks as if it did. Aetox refuses the call and tells the model the real cause.
 
-## Community
+**A provider that returns nothing is an error, not an empty answer.** A round that comes back with not a single
+frame is replayed after withdrawing what was already streamed; what the turn had done stays in context, and every
+silence a turn survives is a row on screen.
 
-There is a Facebook group for questions, ideas, and the kind of half-formed problem that does not
-fit in an issue yet: [the Aetox group](https://www.facebook.com/share/g/1BnXC5EiWg/). Bugs are
-still better filed as issues, because an issue carries the version and the log with it.
+**Dropped connections, failed DNS and 5xx retry without ending the turn**; 401, 403, 400 and exhausted quota are
+told to you plainly.
 
-## Reporting bugs
+**Model capabilities only ever narrow the tool set, never widen it.** A model the registry has never described
+keeps the full set; only one the registry says cannot call tools is narrowed, because withholding tools by
+mistake turns an agent into a chat box.
 
-[Open an issue](https://github.com/Mikedev115/Aetox/issues). The app has a door for this:
-Settings prefills a GitHub issue with your version, install channel and OS, folds the recent
-internal log into a `<details>` block with secrets already stripped, and hands it to you to read
-before you send it from your own account. Nothing is transmitted by the app.
+</details>
 
-## Who makes this, and the licence
+## Status — v1.9.4
 
-Aetox is written by one person. It exists because a model that can only produce text is half a
-tool, and the missing half — hands, permission, and a place to put the result — is an application
-problem rather than a model problem.
+The core is in place. [This release](docs/release-notes/v1.9.4.md), 30 September 2026, brings:
 
-**Aetox is free to use and is not open source.** From v1.3.0 it is under a
-[proprietary licence](LICENSE): install it on as many machines as you like, use it for commercial
-work, read the whole source and audit it — but do not modify it, redistribute it, rebrand it, or
-sell it. The source is published to be *read*, not to be built on.
+- **Chats that address each other by ID**, and Mission Control with work across chats, deliverables, web chat,
+  scheduled jobs and paired Wi-Fi access.
+- **Model switches and an Agents overview**, Git fetch/pull/push, worktrees and a branch graph, and a mode switch
+  that folds away while keeping the chat's working or waiting status visible.
+- **Two coding-loop fixes proved in isolation**: bold text no longer hides an unfinished report, and a folder
+  that becomes a project regains diagnostics. The [120-run study](docs/reports/harness-direction-2026-09-30.md)
+  records rejected prompt trials and regressions as well as successes.
 
-**Your own extensions are yours.** Skills, agents, prompts, configuration and MCP servers you
-write are your property, and selling them is expressly permitted ([LICENSE](LICENSE) §4). That is
-what the extension points are for.
+**Next** — a provider chain that switches accounts when a plan window runs out · external agent programs as
+engines · a personal secretary connected to Google through the user's own Apps Script bridge · RAM measured under
+the same conditions for every app in the tour's last scene
 
-The name **"Aetox"** and the logo are trademarks and are not licensed to anyone else. Third-party
-components keep their own terms and are listed in
-[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) — none of them is GPL or AGPL.
+Documents: [every release note](docs/release-notes/) · [roadmap](ROADMAP.md) · [first-run tour](docs/FIRST-RUN-TOUR.md) ·
+[how a release is cut](docs/RELEASING.md) · [platform support](PLATFORM-SUPPORT.md) · [all measurements](docs/reports/).
+Architecture notes, decision records and design standards are not in this repository.
 
-Earlier releases keep the licence they shipped under, permanently: v0.7.1 and earlier are MIT,
-v0.8.0 through v1.2.4 are Apache-2.0.
+## Source, licence and who makes it
 
-> Aetox was not born to compete with anyone. It exists to stand where the market has a gap — not
-> to be one more agent framework, and not to lock anyone into anything.
+**Source.** The source published in this repository stops at v1.7.0 (15 September 2026), a complete release that
+can be read and studied under the [LICENSE](LICENSE); the code here is the real v1.7.0, unmodified. The source was
+open through v1.8.0 for one day (20–21 September 2026) and was then rolled back to v1.7.0. Every release since is
+still published here in full — tags, installers, the portable zip, the Linux engine, checksums, release notes and
+measurement reports — and the in-app update check, scoop and the Microsoft Store work exactly as before. The
+architectural layer that arrived after v1.7.0 — the MCP shelf, the editor with language servers behind it, the
+session context handed back on reopen, and a window nearly half as heavy at rest — is the most valuable part of the
+work, and the author, who builds it alone, has chosen to keep it in order to keep developing it.
+
+**Licence.** Aetox is free to use and is not open source. From v1.3.0 it is under a [proprietary licence](LICENSE):
+install it on as many machines as you like, use it for commercial work, and read and audit the source published in
+this repository — but do not modify it, redistribute it, rebrand it, or sell it. The source is published to be
+*read*, not to be built on.
+
+**Your own extensions are yours.** Skills, agents, prompts, configuration and MCP servers you write are your
+property, and selling them is expressly permitted ([LICENSE](LICENSE) §4). That is what the extension points are
+for.
+
+The name **"Aetox"** and the logo are trademarks and are not licensed to anyone else. Third-party components keep
+their own terms and are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) — none of them is GPL or AGPL.
+Earlier releases keep the licence they shipped under, permanently: v0.7.1 and earlier are MIT, v0.8.0 through
+v1.2.4 are Apache-2.0.
+
+**Community and bug reports.** The Facebook group [Aetox](https://www.facebook.com/share/g/1BnXC5EiWg/) is for
+questions, ideas, and the kind of half-formed problem that does not fit in an issue yet. Bugs are better filed as
+[issues](https://github.com/Mikedev115/Aetox/issues), because an issue carries the version and the log with it:
+Settings in the app prefills one with your version, install channel, OS and the recent internal log with secrets
+already stripped, and hands it to you to read before you send it from your own account.
+
+**Who makes this.** Aetox is written by one person. It exists because a model that can only produce text is half a
+tool, and the missing half — hands, permission, and a place to put the result — is an application problem rather
+than a model problem.
+
+> Aetox was not born to compete with anyone. It exists to stand where the market has a gap — not to be one more
+> agent framework, and not to lock anyone into anything. The comparisons with other tools in our reports are
+> there to measure our own system.
 
 📧 [phrmsawanachyphl@gmail.com](mailto:phrmsawanachyphl@gmail.com) ·
 ❤️ [Support the project](SPONSOR.md)
