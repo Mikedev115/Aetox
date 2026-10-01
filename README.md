@@ -495,18 +495,18 @@ The report's own summary:
 | [PUBLISHED-NUMBERS.md](docs/reports/PUBLISHED-NUMBERS.md) | Where every published number appears, and where it was measured |
 
 <details>
-<summary>The app's own numbers — 1.9.4 package sizes and dated runtime figures</summary>
+<summary>The app's own numbers — 1.9.5 package sizes and dated runtime figures</summary>
 
-**1.9.4 packages, measured 2026-09-30.** SHA-256 and the release signature were checked; the Store package's
-executables match the portable package. MiB is bytes / 1,048,576. See the [package report](docs/reports/release-1.9.4-verification.md).
+**1.9.5 packages, measured 2026-10-02.** SHA-256 and the release signature were checked; the Store package's
+executables match the portable package. MiB is bytes / 1,048,576. See the [package report](docs/reports/release-1.9.5-verification.md).
 
 | Package | Size |
 |:---|---:|
-| App on disk, two executables | **91.2 MiB** (window 55.5 + engine 35.7) |
-| App installer | **37.0 MiB** |
-| Portable app | 36.0 MiB |
-| CLI installer / portable | 22.6 / 31.1 MiB |
-| Microsoft Store package | 37.3 MiB · version 1.9.4.0 |
+| App on disk, two executables | **91.6 MiB** (window 55.8 + engine 35.8) |
+| App installer | **37.1 MiB** |
+| Portable app | 36.1 MiB |
+| CLI installer / portable | 22.7 / 31.2 MiB |
+| Microsoft Store package | 37.4 MiB · version 1.9.5.0 |
 
 **Historical measurements below.**
 
