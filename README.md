@@ -420,8 +420,9 @@ code, so a new model shows up without waiting for a new Aetox.
 
 Settings has an independent on/off switch per model: turning one off hides it from pickers without changing a
 chat already using it. Stars are favourites. Search covers the full list while only a window of rows is drawn.
-Under **Agents → Overview**, see who uses a separate model and edit it in the row; everyone else follows the
-chat. 9Router, LM Studio and Ollama have setup cards showing installation, server and model/key status.
+Under **Personnel**, employees and helpers share a searchable directory with rank and source filters;
+their overview shows separate model choices. Each chat keeps its own selected model and reasoning dial.
+9Router, LM Studio and Ollama have setup cards showing installation, server and model/key status.
 
 ## Measured results
 
@@ -817,17 +818,16 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.4
+## Status — v1.9.5
 
-The core is in place. [This release](docs/release-notes/v1.9.4.md), 30 September 2026, brings:
+The core is in place. [This release](docs/release-notes/v1.9.5.md), 2 October 2026, brings:
 
-- **Chats that address each other by ID**, and Mission Control with work across chats, deliverables, web chat,
-  scheduled jobs and paired Wi-Fi access.
-- **Model switches and an Agents overview**, Git fetch/pull/push, worktrees and a branch graph, and a mode switch
-  that folds away while keeping the chat's working or waiting status visible.
-- **Two coding-loop fixes proved in isolation**: bold text no longer hides an unfinished report, and a folder
-  that becomes a project regains diagnostics. The [120-run study](docs/reports/harness-direction-2026-09-30.md)
-  records rejected prompt trials and regressions as well as successes.
+- **A unified personnel directory** with rank and source filters, plus model and reasoning choices that belong
+  to each chat rather than leaking across session switches.
+- **Agent/Editor switches return to the selected chat**, including blank drafts, and keep the text editor's
+  caret and scroll. File writes do not open tabs or steal focus on their own.
+- **View and compare another Git branch without checking it out**, then merge only after confirmation.
+  Slash skills now start the requested workflow; incomplete language-server answers retain their warnings.
 
 **Next** — a provider chain that switches accounts when a plan window runs out · external agent programs as
 engines · a personal secretary connected to Google through the user's own Apps Script bridge · RAM measured under
