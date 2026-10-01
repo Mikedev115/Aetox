@@ -158,6 +158,17 @@ Release อยู่ฝั่ง **public** (ที่ตัวเช็คอ�
 ใหม่จากรุ่นที่เผยแพร่ล่าสุดแล้ว **commit เลย** — การรับรองเริ่มฝั่งไมโครซอฟท์ทันที ปกติไม่กี่ชั่วโมงถึงหนึ่งวัน
 ดูสถานะได้ด้วย `msstore submission status 9N4KKBRRSCZZ` หรือหน้า Submissions ใน Partner Center
 
+ตั้งค่าในรีโป **private `Aetox-src`** → Settings → Secrets and variables → Actions → New repository secret
+ใช้ชื่อสี่ตัวในตารางข้างบนตรง ๆ; `CLIENT_SECRET` คือช่อง **Value** ไม่ใช่ Secret ID และ `SELLER_ID`
+ไม่ใช่ Product ID ของแอป ใส่ Seller ID เป็นตัวสุดท้ายเพราะ workflow ใช้ตัวนี้เปิดขั้นส่ง Store
+secret ที่เพิ่มหลัง run เริ่มไม่ใช่หลักฐานว่า run นั้นได้รับค่าแล้ว และต้องต่ออายุ Client secret ก่อนหมดอายุ
+
+**ระวัง draft ที่แก้ด้วยมือ:** `msstore publish` อาจลบ pending draft แล้วสร้างใหม่จากรุ่นที่เผยแพร่ล่าสุด
+จึงทิ้ง metadata ที่เพิ่งแก้ไว้ใน draft ห้ามเปิดขั้นอัตโนมัติระหว่างมีร่างที่ต้องเก็บโดยไม่ตรวจเสียก่อน
+การเพิ่ม secrets คือเปิดให้รุ่นถัดไปส่งเข้ารับรองจริง ไม่ใช่แค่อัปโหลดไฟล์ไว้เฉย ๆ
+ดู[คู่มือ GitHub Actions ของ Microsoft](https://learn.microsoft.com/en-us/windows/apps/publish/msstore-dev-cli/github-actions)
+และ[ข้อควรระวังของ publish](https://learn.microsoft.com/en-us/windows/apps/publish/msstore-dev-cli/commands)
+
 **ทางมือ (เมื่อยังไม่มี secret หรือขั้นอัตโนมัติล้ม):** workflow ยังเก็บไฟล์ไว้เป็น artifact
 (ขั้น "Keep the Store package for Partner Center") การอัปเป็นงานมือ เพราะการกดส่ง
 คือการเผยแพร่ในชื่อเจ้าของบัญชี
