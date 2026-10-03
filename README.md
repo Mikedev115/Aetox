@@ -818,16 +818,18 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.6
+## Status — v1.9.7
 
-The core is in place. [This release](docs/release-notes/v1.9.6.md), 3 October 2026, brings:
+The core is in place. [This release](docs/release-notes/v1.9.7.md), 4 October 2026, brings:
 
-- **Providers grouped by the kind of access you hold** (API key, subscription key, OAuth, local), chosen on
-  cards in two steps, with new subscription packages. GitHub Copilot now signs in through the official Copilot CLI.
-- **A Git tab with three views** (changes, history, branches) instead of a stacked page, and a right panel
-  that stays closed once you close it.
-- **Each main head has its own helpers and its own picked teams**, and several fixes that stop the agent
-  re-sending what the history already holds, searching ignored folders, or losing Undo to a stale git lock.
+- **A Delegate tab on each main head**: teams reach a head only by appointment, Assistant and Code call the
+  members of their appointed teams directly, and the secretary appoints teams, departments and companies from its
+  org chart. All agents now has one page for every agent's model, by rank too.
+- **Skills from the work itself**: a switch lets the agent write a skill while it works (with Undo under the
+  answer), and a look-back review reads only the chats you pick.
+- **A `dev` tool and a `tester` helper**: run the project's dev server by name from `.aetox/launch.json`, and send
+  the clicking-through to a helper so the main chat is not filled with logs. Skills already read in a chat are no
+  longer opened again every turn.
 
 **Next** — a provider chain that switches accounts when a plan window runs out · external agent programs as
 engines · a personal secretary connected to Google through the user's own Apps Script bridge · RAM measured under
