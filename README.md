@@ -818,16 +818,16 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.5
+## Status — v1.9.6
 
-The core is in place. [This release](docs/release-notes/v1.9.5.md), 2 October 2026, brings:
+The core is in place. [This release](docs/release-notes/v1.9.6.md), 3 October 2026, brings:
 
-- **A unified personnel directory** with rank and source filters, plus model and reasoning choices that belong
-  to each chat rather than leaking across session switches.
-- **Agent/Editor switches return to the selected chat**, including blank drafts, and keep the text editor's
-  caret and scroll. File writes do not open tabs or steal focus on their own.
-- **View and compare another Git branch without checking it out**, then merge only after confirmation.
-  Slash skills now start the requested workflow; incomplete language-server answers retain their warnings.
+- **Providers grouped by the kind of access you hold** (API key, subscription key, OAuth, local), chosen on
+  cards in two steps, with new subscription packages. GitHub Copilot now signs in through the official Copilot CLI.
+- **A Git tab with three views** (changes, history, branches) instead of a stacked page, and a right panel
+  that stays closed once you close it.
+- **Each main head has its own helpers and its own picked teams**, and several fixes that stop the agent
+  re-sending what the history already holds, searching ignored folders, or losing Undo to a stale git lock.
 
 **Next** — a provider chain that switches accounts when a plan window runs out · external agent programs as
 engines · a personal secretary connected to Google through the user's own Apps Script bridge · RAM measured under
