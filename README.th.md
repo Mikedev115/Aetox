@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/Mikedev115/Aetox/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Mikedev115/Aetox?color=2f81f7"></a>
-  <a href="docs/reports/coding-harness-1.9.3"><img alt="Coding benchmark" src="https://img.shields.io/badge/coding%20benchmark-395%20runs%20%C2%B7%205%20harnesses-8250df"></a>
+  <a href="docs/reports/coding-harness-1.9.7/README.md"><img alt="Coding benchmark" src="https://img.shields.io/badge/coding%20benchmark-461%20runs%20%C2%B7%205%20harnesses-8250df"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-proprietary%20%C2%B7%20source%20available-blue"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2B-lightgrey">
 </p>
@@ -23,7 +23,7 @@
   <a href="https://apps.microsoft.com/detail/9N4KKBRRSCZZ">Microsoft Store</a> ·
   <a href="https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe">ดาวน์โหลด</a> ·
   <a href="https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-setup.exe">Aetox CLI</a> ·
-  <a href="docs/reports/coding-harness-1.9.3">ผลวัดงานโค้ด</a> ·
+  <a href="docs/reports/README.md">ผลวัดงานโค้ด</a> ·
   <a href="https://www.facebook.com/share/g/1BnXC5EiWg/">ชุมชน</a>
 </p>
 
@@ -389,6 +389,10 @@ ChatGPT (Codex) · GitHub Copilot และ OpenRouter ใช้การลง�
 กติกาการวัดอยู่ใน [BENCHMARK.md](docs/reports/BENCHMARK.md) และกฎข้อเดียวที่ยืนยันคือ ตัวเลขที่ยังไม่ผ่านกติกา
 ห้ามขึ้นที่นี่หรือบนเว็บไซต์
 
+**ฉบับล่าสุด:** [coding-harness-1.9.7](docs/reports/coding-harness-1.9.7/README.md) วัดรุ่น 1.9.7 (4 ต.ค. 2026)
+ตารางข้างล่างยังเป็นฉบับ 1.9.3 · ผลแกว่งระหว่างรอบมาก วัด 1.9.7 สองชุดได้ SlopCodeBench ต่างกัน 1.5–2.5 จุด
+ความต่างไม่กี่จุดจึงอ่านว่าพอ ๆ กัน · รายงานทุกฉบับและฉบับล่าสุดของแต่ละเรื่องอยู่ที่[หน้ารวมรายงาน](docs/reports/README.md)
+
 > **อ่านก่อนดูตัวเลข** ผลงานโค้ดทั้งหมดมาจาก[รายงาน coding-harness-1.9.3](docs/reports/coding-harness-1.9.3) ที่เราวัดเอง
 > 11 โจทย์ × 2 โมเดล × 3 รอบ รวม 395 รัน ทุกโจทย์ตัดสินด้วยเทสต์ที่ซ่อนไว้ ข้อความที่ส่งเหมือนกันทุกไบต์ และไม่มี
 > สกิลหรือการตั้งค่าของผู้ใช้ในทุกตัวครอบ โมเดลคือ `gpt-6-luna` และ `gpt-5.6-terra` ความคิดระดับ medium ผ่านบัญชี
@@ -444,6 +448,11 @@ ChatGPT (Codex) · GitHub Copilot และ OpenRouter ใช้การลง�
 
 | รายงานอื่น | วัดอะไร |
 |:---|:---|
+| [หน้ารวมรายงาน](docs/reports/README.md) | รายงานทุกฉบับ และฉบับล่าสุดของแต่ละเรื่อง |
+| [coding-harness-1.9.7](docs/reports/coding-harness-1.9.7/README.md) | ฉบับ 1.9.7 เทียบตัวครอบสี่ตัวเดิม วัดสองชุดพร้อมความแกว่งระหว่างชุด |
+| [HARD-SOL-1.9.7](docs/reports/HARD-SOL-1.9.7-20261004.md) | โจทย์ยากบน GPT-6 Sol: DeepSWE 1.1 และ Terminal-Bench 2.1 ข้อยาก เทียบ Codex CLI และ OpenCode |
+| [HARD5-1.9.7](docs/reports/HARD5-1.9.7-20261004.md) | 5 โจทย์ระดับกลาง ข้ามรุ่น 1.9.0 → 1.9.7 และสามขนาดโมเดล |
+| [MODEL-COST-SIMULATION](docs/reports/MODEL-COST-SIMULATION-LIVING-REALM-20261004.md) | งานจริงหนึ่งเซสชัน คิดราคาใหม่ด้วยโมเดลอื่น 8 ตัว และลูกมือประหยัดแค่ไหน |
 | [coding-harness-2026-09-27](docs/reports/coding-harness-2026-09-27) | ฉบับ 1.9.0 เทียบ OpenCode · Codex CLI ข้อสอบชุดเดียวกัน พร้อมโจทย์ ต้นทาง และสัญญาอนุญาตของแต่ละโจทย์ |
 | [harness-direction-2026-09-30](docs/reports/harness-direction-2026-09-30.md) | ทดลอง 120 รันด้วยซอร์สตรึงบนสองโมเดล แยกการซ่อมที่รับไว้ คำทดลองที่ถอดคืน และงานหลายเทิร์นที่คะแนนตกจากผลเทียบรุ่น 1.9.3 |
 | [SKILL-BENCH.md](docs/reports/SKILL-BENCH.md) | สกิลของ Aetox ช่วยงานจริงแค่ไหน เปิดเทียบปิดบนโมเดลเดียวกัน รวมสิ่งที่ไม่ขยับ |

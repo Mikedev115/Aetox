@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/Mikedev115/Aetox/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Mikedev115/Aetox?color=2f81f7"></a>
-  <a href="docs/reports/coding-harness-1.9.3"><img alt="Coding benchmark" src="https://img.shields.io/badge/coding%20benchmark-395%20runs%20%C2%B7%205%20harnesses-8250df"></a>
+  <a href="docs/reports/coding-harness-1.9.7/README.md"><img alt="Coding benchmark" src="https://img.shields.io/badge/coding%20benchmark-461%20runs%20%C2%B7%205%20harnesses-8250df"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-proprietary%20%C2%B7%20source%20available-blue"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2B-lightgrey">
 </p>
@@ -23,7 +23,7 @@
   <a href="https://apps.microsoft.com/detail/9N4KKBRRSCZZ">Microsoft Store</a> ·
   <a href="https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe">Download</a> ·
   <a href="https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-setup.exe">Aetox CLI</a> ·
-  <a href="docs/reports/coding-harness-1.9.3">Coding benchmark</a> ·
+  <a href="docs/reports/README.md">Coding benchmark</a> ·
   <a href="https://www.facebook.com/share/g/1BnXC5EiWg/">Community</a>
 </p>
 
@@ -432,6 +432,11 @@ their overview shows separate model choices. Each chat keeps its own selected mo
 The rules are in [BENCHMARK.md](docs/reports/BENCHMARK.md), and the one rule it enforces is that a number that
 has not passed them does not appear here or on the website.
 
+**Latest edition:** [coding-harness-1.9.7](docs/reports/coding-harness-1.9.7/README.md) measures 1.9.7 (4 October 2026);
+the tables below are still the 1.9.3 edition. The run-to-run swing is large: two sets of 1.9.7 rounds differ by
+1.5–2.5 points on SlopCodeBench, so a gap of a few points reads as a tie. Every report, and which edition is current,
+is on [the reports page](docs/reports/README.md).
+
 > **Read this before the numbers.** All coding results come from
 > [the coding-harness-1.9.3 report](docs/reports/coding-harness-1.9.3), which we measured ourselves: 11 tasks ×
 > 2 models × 3 rounds, 395 runs. Every task is judged by hidden tests, every harness receives byte-identical
@@ -489,6 +494,11 @@ The report's own summary:
 
 | Other reports | What they measure |
 |:---|:---|
+| [Reports page](docs/reports/README.md) | Every report, and the latest edition of each subject |
+| [coding-harness-1.9.7](docs/reports/coding-harness-1.9.7/README.md) | The 1.9.7 edition against the same four harnesses, with two sets of rounds and the swing between them |
+| [HARD-SOL-1.9.7](docs/reports/HARD-SOL-1.9.7-20261004.md) | Hard tasks on GPT-6 Sol: DeepSWE 1.1 and Terminal-Bench 2.1 hard, Aetox against Codex CLI and OpenCode |
+| [HARD5-1.9.7](docs/reports/HARD5-1.9.7-20261004.md) | Five mid-level tasks across releases 1.9.0 → 1.9.7 and three model sizes |
+| [MODEL-COST-SIMULATION](docs/reports/MODEL-COST-SIMULATION-LIVING-REALM-20261004.md) | One real session re-priced on eight other models, and what helpers save |
 | [coding-harness-2026-09-27](docs/reports/coding-harness-2026-09-27) | The 1.9.0 edition against OpenCode · Codex CLI on the same tasks, with each task's prompt, source and licence |
 | [harness-direction-2026-09-30](docs/reports/harness-direction-2026-09-30.md) | 120 frozen-source experiments on two models; the retained fixes, rejected prompt trials and multi-turn regression are reported separately from the 1.9.3 comparison |
 | [SKILL-BENCH.md](docs/reports/SKILL-BENCH.md) | How much Aetox's skills actually help, skills on against off on the same model, including what did not move |

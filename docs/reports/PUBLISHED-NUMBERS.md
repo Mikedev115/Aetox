@@ -19,7 +19,7 @@
 ## ตาราง
 
 > `aetox-landing` = รีโป [Mikedev115/aetox-landing](https://github.com/Mikedev115/aetox-landing) ปล่อยที่
-> <https://mikedev115.github.io/aetox-landing/> (ย้ายออกจาก `docs/index.html` เมื่อ 11 ก.ย. 2026 —
+> <https://mikedev115.github.io/Aetox-landing/> (ย้ายออกจาก `docs/index.html` เมื่อ 11 ก.ย. 2026 —
 > ที่นี่เหลือหน้า redirect กับ `privacy.html` ซึ่ง URL จดไว้กับ Microsoft Store จึงย้ายไม่ได้)
 >
 > ตัวเลขในรีโปนั้นอยู่ 3 ที่: `lib/i18n/en.ts` + `th.ts` (ข้อความ) · `components/Weight.tsx`

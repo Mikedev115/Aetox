@@ -1,7 +1,7 @@
 # แลนดิ้งเพจ — ย้ายไปรีโปแยกแล้ว
 
 ตั้งแต่ **11 ก.ย. 2026** หน้าเว็บอยู่ที่ [Mikedev115/aetox-landing](https://github.com/Mikedev115/aetox-landing)
-(Next.js ส่งออกเป็นไฟล์นิ่ง → GitHub Pages ที่ <https://mikedev115.github.io/aetox-landing/>)
+(Next.js ส่งออกเป็นไฟล์นิ่ง → GitHub Pages ที่ <https://mikedev115.github.io/Aetox-landing/>)
 
 เหตุผลที่แยก: คนที่ fork แอปไม่ควรได้เว็บการตลาดกับ `node_modules` ติดไปด้วย,
 เว็บควรปล่อยได้โดยไม่ต้องผ่าน CI ของ Go สามแพลตฟอร์ม, และป้ายเวอร์ชันบนเว็บ

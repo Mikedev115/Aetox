@@ -3,7 +3,7 @@
 > **Date:** 2026-08-20
 > **Status:** **Implemented** 2026-08-20. [cmd/tokenaudit](../../cmd/tokenaudit/main.go) runs today and every number below came out of it.
 > **Scope:** reading `tool_runs` and `token_usage` in `aetox.db`. No schema change, no new recording, no new dependency.
-> **Does not revisit:** what a turn costs. That is the usage page ([desktop/usage.go](desktop/usage.go)) and stays there.
+> **Does not revisit:** what a turn costs. That is the usage page (`internal/engine/usage.go`) and stays there.
 
 ## What this practice is called
 
