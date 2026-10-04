@@ -34,6 +34,12 @@
 > ใช้ฟรี · **source-available ไม่ใช่ open source** · ซอร์สในรีโปนี้หยุดที่ v1.7.0 ส่วนตัวโปรแกรมยังออกรุ่นใหม่ที่นี่ทุกรุ่น —
 > [อ่านเพิ่ม](#ซอร์สโค้ด-สัญญาอนุญาต-และคนที่ทำ)
 
+**เริ่มใช้งาน** — Windows 10 ขึ้นไป x64 ไม่ต้องมีคีย์ API ก็ลองได้:
+[Microsoft Store](https://apps.microsoft.com/detail/9N4KKBRRSCZZ) (ลงนามแล้ว อัปเดตเอง) ·
+[ตัวติดตั้ง](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe) ·
+[Aetox CLI](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-setup.exe) สำหรับเทอร์มินัล ·
+Scoop ไฟล์ zip พกพา และเรื่อง SmartScreen อยู่ใน[ติดตั้ง](#ติดตั้ง) · เอกสารอื่นทั้งหมดอยู่ใน [docs/](docs/README.md)
+
 **ไปที่หัวข้อ:** [สามหน้าใช้งาน](#harness-เดียว-สามหน้าใช้งาน) · [ระบบสำคัญกว่าโมเดล](#ระบบสำคัญกว่าโมเดล) ·
 [ผู้ช่วย](#ประตูผู้ช่วย) · [โค้ด](#ประตูโค้ด) · [ทีม](#ประตูทีม) · [โมเดล](#ใช้กับโมเดลไหนได้บ้าง) · [ผลวัด](#ผลวัด) ·
 [ติดตั้ง](#ติดตั้ง) · [ความปลอดภัย](#ความปลอดภัยและข้อมูลของคุณ) · [ระบบทำงานอย่างไร](#ระบบทำงานอย่างไร) ·
@@ -414,7 +420,6 @@ ChatGPT (Codex) · GitHub Copilot และ OpenRouter ใช้การลง�
 | [HARD5-1.9.7](docs/reports/HARD5-1.9.7-20261004.md) | 5 โจทย์ระดับกลาง ข้ามรุ่น 1.9.0 → 1.9.7 และสามขนาดโมเดล |
 | [MODEL-COST-SIMULATION](docs/reports/MODEL-COST-SIMULATION-LIVING-REALM-20261004.md) | งานจริงหนึ่งเซสชัน คิดราคาใหม่ด้วยโมเดลอื่น 8 ตัว และลูกมือประหยัดแค่ไหน |
 | [coding-harness-2026-09-27](docs/reports/coding-harness-2026-09-27) | ฉบับ 1.9.0 เทียบ OpenCode · Codex CLI ข้อสอบชุดเดียวกัน พร้อมโจทย์ ต้นทาง และสัญญาอนุญาตของแต่ละโจทย์ |
-| [harness-direction-2026-09-30](docs/reports/harness-direction-2026-09-30.md) | ทดลอง 120 รันด้วยซอร์สตรึงบนสองโมเดล แยกการซ่อมที่รับไว้ คำทดลองที่ถอดคืน และงานหลายเทิร์นที่คะแนนตกจากผลเทียบรุ่น 1.9.3 |
 | [SKILL-BENCH.md](docs/reports/SKILL-BENCH.md) | สกิลของ Aetox ช่วยงานจริงแค่ไหน เปิดเทียบปิดบนโมเดลเดียวกัน รวมสิ่งที่ไม่ขยับ |
 | [TOKEN-AUDIT.md](docs/reports/TOKEN-AUDIT.md) | โทเคนไปอยู่ตรงไหนในแต่ละคำขอ |
 | [TEST-REPORT.md](docs/reports/TEST-REPORT.md) | เทสต์รายโมดูล |
@@ -734,8 +739,8 @@ backtick ของ POSIX shell `-EncodedCommand` `FromBase64String` และ `I
 **ต่อไป** — โซ่ผู้ให้บริการที่สลับบัญชีเองเมื่อหน้าต่างแพลนหมด · โปรแกรมเอเจนภายนอกเป็นเครื่องยนต์ ·
 เลขาส่วนตัวที่เชื่อม Google ผ่านสะพาน Apps Script ของผู้ใช้เอง · วัด RAM รอบสภาพเดียวกันทุกแอปในฉากสุดท้ายของทัวร์
 
-เอกสาร: [บันทึกทุกรุ่น](docs/release-notes/) · [แผนงาน](ROADMAP.md) · [ทัวร์ครั้งแรก](docs/FIRST-RUN-TOUR.md) ·
-[ปล่อยรุ่นใหม่อย่างไร](docs/RELEASING.md) · [แพลตฟอร์มที่รองรับ](PLATFORM-SUPPORT.md) · [ผลวัดทั้งหมด](docs/reports/)
+เอกสาร: [บันทึกทุกรุ่น](docs/release-notes/) · [แผนงาน](ROADMAP.md) · [แพลตฟอร์มที่รองรับ](PLATFORM-SUPPORT.md) ·
+[ผลวัดทั้งหมด](docs/reports/README.md) · [เอกสารทั้งหมด](docs/README.md)
 เอกสารสถาปัตยกรรม บันทึกการตัดสินใจ และมาตรฐานการออกแบบไม่อยู่ในรีโปนี้
 
 ## ซอร์สโค้ด สัญญาอนุญาต และคนที่ทำ

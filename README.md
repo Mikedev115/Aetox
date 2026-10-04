@@ -34,6 +34,12 @@
 > Free to use · **source-available, not open source** · the source in this repository stops at v1.7.0, while the
 > program itself still ships every release here — [read more](#source-licence-and-who-makes-it)
 
+**Get started** — Windows 10 or later, x64, no API key needed to try it:
+[Microsoft Store](https://apps.microsoft.com/detail/9N4KKBRRSCZZ) (signed, updates itself) ·
+[installer](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe) ·
+[Aetox CLI](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-setup.exe) for the terminal ·
+Scoop, portable zip and SmartScreen notes in [Install](#install) · every other document is listed in [docs/](docs/README.md)
+
 **Jump to:** [Harness surfaces](#one-harness-three-surfaces) · [System over model](#system-over-model) ·
 [Assistant](#the-assistant-door) · [Code](#the-code-door) · [Team](#the-team-door) · [Models](#which-models-it-works-with) ·
 [Measured results](#measured-results) · [Install](#install) · [Safety](#safety-and-your-data) ·
@@ -459,7 +465,6 @@ round, the method and where Aetox loses are in the reports — start at [the rep
 | [HARD5-1.9.7](docs/reports/HARD5-1.9.7-20261004.md) | Five mid-level tasks across releases 1.9.0 → 1.9.7 and three model sizes |
 | [MODEL-COST-SIMULATION](docs/reports/MODEL-COST-SIMULATION-LIVING-REALM-20261004.md) | One real session re-priced on eight other models, and what helpers save |
 | [coding-harness-2026-09-27](docs/reports/coding-harness-2026-09-27) | The 1.9.0 edition against OpenCode · Codex CLI on the same tasks, with each task's prompt, source and licence |
-| [harness-direction-2026-09-30](docs/reports/harness-direction-2026-09-30.md) | 120 frozen-source experiments on two models; the retained fixes, rejected prompt trials and multi-turn regression are reported separately from the 1.9.3 comparison |
 | [SKILL-BENCH.md](docs/reports/SKILL-BENCH.md) | How much Aetox's skills actually help, skills on against off on the same model, including what did not move |
 | [TOKEN-AUDIT.md](docs/reports/TOKEN-AUDIT.md) | Where the tokens go in each request |
 | [TEST-REPORT.md](docs/reports/TEST-REPORT.md) | Tests by module |
@@ -806,8 +811,8 @@ The core is in place. [This release](docs/release-notes/v1.9.8.md), 4 October 20
 engines · a personal secretary connected to Google through the user's own Apps Script bridge · RAM measured under
 the same conditions for every app in the tour's last scene
 
-Documents: [every release note](docs/release-notes/) · [roadmap](ROADMAP.md) · [first-run tour](docs/FIRST-RUN-TOUR.md) ·
-[how a release is cut](docs/RELEASING.md) · [platform support](PLATFORM-SUPPORT.md) · [all measurements](docs/reports/).
+Documents: [every release note](docs/release-notes/) · [roadmap](ROADMAP.md) · [platform support](PLATFORM-SUPPORT.md) ·
+[all measurements](docs/reports/README.md) · [every document](docs/README.md).
 Architecture notes, decision records and design standards are not in this repository.
 
 ## Source, licence and who makes it
