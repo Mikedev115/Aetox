@@ -567,6 +567,7 @@ scoop install https://raw.githubusercontent.com/Mikedev115/Aetox/main/scoop/aeto
 ```
 
 **Updating.** The app checks for a new release shortly after it opens and once a day, and shows a card in the corner.
+Step by step for every channel, and what to do when an update does not take: [the update guide](docs/UPDATING.md).
 
 | Channel | How it updates |
 |:---|:---|

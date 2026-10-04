@@ -9,6 +9,7 @@
 |---|---|
 | ดาวน์โหลด · Download | [รุ่นล่าสุด · Latest release](https://github.com/Mikedev115/Aetox/releases/latest) · [Microsoft Store](https://apps.microsoft.com/detail/9N4KKBRRSCZZ) |
 | วิธีติดตั้ง · Install | [README › Install](../README.md#install) · [ภาษาไทย](../README.th.md#ติดตั้ง) |
+| **อัปเดตเป็นรุ่นใหม่ · Updating** | [UPDATING.md](UPDATING.md) — ทีละช่องทาง และอัปแล้วไม่ขึ้นต้องทำอะไร |
 | แต่ละรุ่นเปลี่ยนอะไร · What changed | [release-notes/](release-notes) |
 | รองรับระบบไหน · Platforms | [PLATFORM-SUPPORT.md](../PLATFORM-SUPPORT.md) |
 | กำลังทำอะไรต่อ · Roadmap | [ROADMAP.md](../ROADMAP.md) |
