@@ -450,7 +450,11 @@ account. What held in every set of rounds:
 - **Hard tasks on GPT-6 Sol** — DeepSWE 1.1 and Terminal-Bench 2.1 hard, 12 tasks at high reasoning: Aetox 7 ·
   Codex CLI 7 · OpenCode 6
 - **The price** — more time and more tokens than the others (Terra 76 min against 46–71; about 90% of the tokens
-  are cached input). Against 1.9.3, Terra is faster and cheaper (81 → 76 min, cost −11%)
+  are cached input). Against 1.9.3, Terra is faster and cheaper (81 → 76 min, cost −11%). The benchmark is
+  one-shot, so the main agent does nearly all of it (helpers called in 1 of 78 runs); in a real session helpers
+  kept the main context at 107k instead of 190k and cut cost by about 6% on OpenAI prices, 18–30% on other providers
+  ([session report](docs/reports/LIVING-REALM-DELEGATION-TOKENS-20261004.md) ·
+  [cost report](docs/reports/MODEL-COST-SIMULATION-LIVING-REALM-20261004.md))
 - **Where it trails** — Web-Bench, where pi passes more on both models and omp on Terra · the single SWE-bench
   bug on Luna
 
@@ -553,7 +557,7 @@ what the app does before signing up for anything.
 
 Other ways: Scoop for the app and the CLI, or a portable zip
 ([app](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-windows-amd64-portable.zip) — keep both
-files together; the only channel that updates itself in place ·
+files together ·
 [CLI](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-windows-amd64.zip) — run
 `.\aetox.exe path add` once to put it on PATH).
 
@@ -561,6 +565,20 @@ files together; the only channel that updates itself in place ·
 scoop install https://raw.githubusercontent.com/Mikedev115/Aetox/main/scoop/aetox.json
 scoop install https://raw.githubusercontent.com/Mikedev115/Aetox/main/scoop/aetox-cli.json
 ```
+
+**Updating.** The app checks for a new release shortly after it opens and once a day, and shows a card in the corner.
+
+| Channel | How it updates |
+|:---|:---|
+| Installer | **Download the update**, then **Restart to update**: the app closes, runs the new installer (Windows asks for admin rights, press Yes) and opens again |
+| Portable zip | **Download the update**: the app swaps both files in its folder and is the new build the next time it opens |
+| Microsoft Store | Windows updates it |
+| Scoop | `scoop update aetox` |
+
+If a restart brings back the same build: close Aetox completely and run the
+[latest installer](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe)
+over it yourself. Your data, chats and keys stay. (Installers up to 1.9.8 could skip the window's exe when
+another program held it open; fixed in [1.9.9](docs/release-notes/v1.9.9.md).)
 
 The installer carries only Aetox's own files. Tesseract, poppler, ffmpeg and the speech model are downloaded by
 the app later, only for the capabilities you tick. When the app is installed, the CLI uses the same engine, keys,
@@ -795,9 +813,14 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.8
+## Status — v1.9.9
 
-The core is in place. [This release](docs/release-notes/v1.9.8.md), 4 October 2026, brings:
+The core is in place. [This release](docs/release-notes/v1.9.9.md), 4 October 2026, brings:
+
+- **Updating from inside the app no longer loops back to the old build**: the installer moves the old
+  `aetox.exe` aside before writing the new one, and when it still cannot, it says so instead of reporting success.
+
+[1.9.8](docs/release-notes/v1.9.8.md), the same day, brought:
 
 - **Pictures, files and helpers stay with their own chat**: a picture one chat just drew no longer shows as a
   broken icon from another pane or while another chat works, a coding chat's helper no longer appears under the

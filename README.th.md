@@ -406,7 +406,10 @@ ChatGPT (Codex) · GitHub Copilot และ OpenRouter ใช้การลง�
 - **โจทย์ยากบน GPT-6 Sol** — DeepSWE 1.1 และ Terminal-Bench 2.1 ข้อยาก 12 ข้อ ความคิด high: Aetox 7 ·
   Codex CLI 7 · OpenCode 6
 - **ราคาที่จ่าย** — ใช้เวลาและ token มากกว่าตัวอื่น (Terra 76 นาที ต่อ 46–71 นาที token ราว 90% เป็นขาเข้าที่แคชไว้)
-  เทียบ 1.9.3 แล้ว Terra เร็วขึ้นและถูกลง (81 → 76 นาที ค่าใช้จ่ายลด 11%)
+  เทียบ 1.9.3 แล้ว Terra เร็วขึ้นและถูกลง (81 → 76 นาที ค่าใช้จ่ายลด 11%) · benchmark สั่งครั้งเดียวจบ ตัวหลักจึงทำเองเกือบทั้งหมด
+  (เรียกลูกมือ 1 ใน 78 รัน) ส่วนงานจริง ลูกมือทำให้บริบทของตัวหลักจบที่ 107k แทน 190k และลดค่าใช้จ่ายราว 6% บนราคา OpenAI
+  18–30% บนค่ายอื่น ([รายงานงานจริง](docs/reports/LIVING-REALM-DELEGATION-TOKENS-20261004.md) ·
+  [รายงานต้นทุน](docs/reports/MODEL-COST-SIMULATION-LIVING-REALM-20261004.md))
 - **จุดที่แพ้** — Web-Bench ที่ pi ผ่านมากกว่าทั้งสองโมเดล และ omp บน Terra · SWE-bench บั๊กเดียวบน Luna
 
 ผลแกว่งระหว่างรอบ 1.5–2.5 จุดบน SlopCodeBench ความต่างไม่กี่จุดจึงอ่านว่าพอ ๆ กัน ตารางเต็ม คะแนนทุกรอบ
@@ -502,14 +505,27 @@ Windows 10 ขึ้นไป x64 **ไม่ต้องมี API key ก็�
 | **Aetox CLI** | [aetox-cli-setup.exe](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-setup.exe) | โต๊ะโค้ดในเทอร์มินัล ลงในโฟลเดอร์ผู้ใช้ ไม่ต้องใช้สิทธิ์แอดมิน ใส่ PATH ให้เอง ไม่ขึ้น Store |
 
 ทางอื่น: Scoop สำหรับแอปและ CLI หรือ zip แบบพกพา
-([แอป](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-windows-amd64-portable.zip) ต้องมีสองไฟล์อยู่ด้วยกัน
-และเป็นช่องทางเดียวที่อัปเดตตัวเองในที่เดิมได้ ·
+([แอป](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-windows-amd64-portable.zip) ต้องมีสองไฟล์อยู่ด้วยกัน ·
 [CLI](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-cli-windows-amd64.zip) รัน `.\aetox.exe path add` ครั้งเดียวเพื่อใส่ PATH)
 
 ```powershell
 scoop install https://raw.githubusercontent.com/Mikedev115/Aetox/main/scoop/aetox.json
 scoop install https://raw.githubusercontent.com/Mikedev115/Aetox/main/scoop/aetox-cli.json
 ```
+
+**อัปเดต** แอปเช็กรุ่นใหม่เองหลังเปิดและวันละครั้ง แล้วขึ้นการ์ดที่มุมจอ
+
+| ช่องทาง | วิธีอัปเดต |
+|:---|:---|
+| ตัวติดตั้ง | กด **ดาวน์โหลดอัปเดต** แล้ว **รีสตาร์ทเพื่ออัปเดต** แอปปิดตัว รันตัวติดตั้งของรุ่นใหม่ (Windows ขอสิทธิ์ผู้ดูแล กด Yes) แล้วเปิดกลับมาเอง |
+| zip แบบพกพา | กด **ดาวน์โหลดอัปเดต** แอปสลับสองไฟล์ในโฟลเดอร์เดิม แล้วเป็นรุ่นใหม่ตอนเปิดครั้งถัดไป |
+| Microsoft Store | Windows อัปเดตให้เอง |
+| Scoop | `scoop update aetox` |
+
+ถ้ากดรีสตาร์ทแล้วแอปกลับมาเป็นรุ่นเดิม: ปิด Aetox ให้หมด แล้วรัน
+[ตัวติดตั้งรุ่นล่าสุด](https://github.com/Mikedev115/Aetox/releases/latest/download/aetox-amd64-installer.exe)
+เองทับของเดิม ข้อมูล แชต และคีย์อยู่ครบ (ตัวติดตั้ง 1.9.8 ลงมาข้ามตัวหน้าต่างได้ถ้ามีโปรแกรมเปิดไฟล์ค้างอยู่
+แก้แล้วใน [1.9.9](docs/release-notes/v1.9.9.md))
 
 ตัวติดตั้งพกมาแค่ไฟล์ของ Aetox เอง ส่วน Tesseract, poppler, ffmpeg และโมเดลถอดเสียง แอปโหลดให้ทีหลังเฉพาะ
 ความสามารถที่คุณติ๊กเลือก ถ้าเครื่องมีแอปอยู่ CLI จะใช้เครื่องยนต์ คีย์ แชท และความจำชุดเดียวกับแอป
@@ -725,9 +741,14 @@ backtick ของ POSIX shell `-EncodedCommand` `FromBase64String` และ `I
 
 </details>
 
-## สถานะ — v1.9.8
+## สถานะ — v1.9.9
 
-แกนหลักเข้าที่แล้ว [รุ่นนี้](docs/release-notes/v1.9.8.md) วันที่ 4 ต.ค. 2026 เพิ่ม:
+แกนหลักเข้าที่แล้ว [รุ่นนี้](docs/release-notes/v1.9.9.md) วันที่ 4 ต.ค. 2026 แก้:
+
+- **อัปเดตในแอปไม่วนกลับรุ่นเดิม** ตัวติดตั้งย้าย `aetox.exe` ตัวเก่าออกก่อนเขียนตัวใหม่
+  และถ้ายังเขียนไม่ได้ก็บอกตามจริง แทนการรายงานว่าสำเร็จ
+
+[1.9.8](docs/release-notes/v1.9.8.md) วันเดียวกัน เพิ่ม:
 
 - **ภาพ ไฟล์ และลูกมืออยู่กับแชตของตัวเอง** ภาพที่แชตหนึ่งเพิ่งวาดไม่กลายเป็นไอคอนเสียเมื่อดูจากแผงอีกฝั่งหรือระหว่างอีกแชตทำงาน
   ลูกมือของแชตโค้ดไม่โผล่ใต้คำตอบของแชตผู้ช่วย และแชตที่ทำงานเบื้องหลังเขียนไฟล์ใหม่ลงโฟลเดอร์ของตัวเอง
