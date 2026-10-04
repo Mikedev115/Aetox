@@ -5,10 +5,10 @@
 <h1 align="center">Aetox</h1>
 
 <p align="center">
-  <strong>Assistant · Code desk · Agent teams — three doors in one Windows app that does the work on your machine</strong>
+  <strong>A Windows-native agent harness — Assistant · Code desk · Agent teams are three surfaces of one system that does the work on your machine</strong>
 </p>
 
-<h3 align="center">The heart is not what the model knows. It is the architecture of the whole system.</h3>
+<h3 align="center">System over model: the environment turns an answer into verified work.</h3>
 
 <p align="center">
   <a href="https://github.com/Mikedev115/Aetox/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Mikedev115/Aetox?color=2f81f7"></a>
@@ -34,27 +34,30 @@
 > Free to use · **source-available, not open source** · the source in this repository stops at v1.7.0, while the
 > program itself still ships every release here — [read more](#source-licence-and-who-makes-it)
 
-**Jump to:** [What it does](#what-aetox-does-for-you) · [Architecture](#the-heart-is-the-architecture-not-the-model) ·
+**Jump to:** [Harness surfaces](#one-harness-three-surfaces) · [System over model](#system-over-model) ·
 [Assistant](#the-assistant-door) · [Code](#the-code-door) · [Team](#the-team-door) · [Models](#which-models-it-works-with) ·
 [Measured results](#measured-results) · [Install](#install) · [Safety](#safety-and-your-data) ·
 [How the system works](#how-the-system-works) · [Licence](#source-licence-and-who-makes-it)
 
-## What Aetox does for you
+## One harness, three surfaces
 
-| If you want | Open the door | Aetox gives you |
+**Aetox is a Windows-native agent harness:** the system around a model that supplies tools, a workspace,
+permissions, memory, and a verification loop so it can do real work rather than only generate an answer.
+
+| If you want | Open the surface | Aetox gives you |
 |:---|:---|:---|
 | AI that works with your files, the web and documents on your machine | **Assistant**<br>Use, remember, and create | Real file reads and writes, real commands, and a real browser you watch and can take over. It reads images, PDFs and audio, and hands back spreadsheets, documents and slides that actually open |
-| To write, fix and test code | **Code**<br>Build, debug, and ship | A desk bound to your project. Agent mode lets the agent do the work; Editor mode lets you write while Aetox helps. Language servers, Git, a real terminal, and `aetox` in your terminal too |
+| To write, fix and test code | **Code — flagship use case**<br>Build, debug, and ship | A desk bound to your project. Agent mode lets the agent do the work; Editor mode lets you write while Aetox helps. Language servers, Git, a real terminal, and `aetox` in your terminal too |
 | To split work across several roles at once | **Team**<br>Arrange, start, and watch | Talk to one secretary; the work goes to a team, a department or a company of agents with a head at every level, and comes back as real files |
 
-All three doors are one app sharing one set of keys, memory, settings and permissions; switch in the top bar
-at any time. It works with [28 external model providers](#which-models-it-works-with), cloud and local, plus a
+Assistant and Team are surfaces of the same harness as Code, sharing one set of keys, memory, settings and
+permissions; switch in the top bar at any time. It works with [28 external model providers](#which-models-it-works-with), cloud and local, plus a
 built-in trial provider, so you can start without an API key. The interface ships in Thai and English, with Thai
 as the default. **[Install](#install)** from the Microsoft Store, the installer, or as Aetox CLI.
 
-## The heart is the architecture, not the model
+## System over model
 
-**Aetox is the execution layer for AI** — *models provide intelligence, Aetox provides capability.*
+**Models provide intelligence; Aetox provides the system that lets them act.**
 
 ```
                      MODEL        ← the brain: knows what should be done
@@ -818,18 +821,17 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.7
+## Status — v1.9.8
 
-The core is in place. [This release](docs/release-notes/v1.9.7.md), 4 October 2026, brings:
+The core is in place. [This release](docs/release-notes/v1.9.8.md), 4 October 2026, brings:
 
-- **A Delegate tab on each main head**: teams reach a head only by appointment, Assistant and Code call the
-  members of their appointed teams directly, and the secretary appoints teams, departments and companies from its
-  org chart. All agents now has one page for every agent's model, by rank too.
-- **Skills from the work itself**: a switch lets the agent write a skill while it works (with Undo under the
-  answer), and a look-back review reads only the chats you pick.
-- **A `dev` tool and a `tester` helper**: run the project's dev server by name from `.aetox/launch.json`, and send
-  the clicking-through to a helper so the main chat is not filled with logs. Skills already read in a chat are no
-  longer opened again every turn.
+- **Pictures, files and helpers stay with their own chat**: a picture one chat just drew no longer shows as a
+  broken icon from another pane or while another chat works, a coding chat's helper no longer appears under the
+  assistant's answer, and a chat working in the background writes its new files into its own folder.
+- **The agent only says the user can see what is true**: `desk_open` now knows whether the chat is on screen and
+  whether the right panel is closed, so the model puts the picture in its answer when the person cannot see it.
+- **A clearer front page**: Aetox is described as a Windows-native agent harness, with Code as the flagship use
+  case, and "UI" in a game chat is answered with code rather than a drawing.
 
 **Next** — a provider chain that switches accounts when a plan window runs out · external agent programs as
 engines · a personal secretary connected to Google through the user's own Apps Script bridge · RAM measured under
