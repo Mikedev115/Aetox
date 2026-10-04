@@ -88,8 +88,8 @@ Much of what people assume has to come from a bigger model is, in Aetox, the sys
 3. **A small local model does big work** — a 9B/35B model in LM Studio or Ollama gets the same tools as a
    frontier one, and not a byte leaves your machine → [Which models it works with](#which-models-it-works-with)
 4. **Same model, different result** — on GPT-6 Luna (`gpt-6-luna`, through the same ChatGPT (Codex) account for
-   every harness), code passing the security tests (CWEval func-sec@1): Aetox 97.8% · OpenCode 66.7% ·
-   Codex CLI 66.7% · omp 68.9% · pi 64.4%, over 395 runs judged by hidden tests. The method and where Aetox
+   every harness), code passing the security tests (CWEval func-sec@1): Aetox 91.1% · OpenCode 66.7% ·
+   Codex CLI 66.7% · omp 68.9% · pi 64.4%, over 461 runs judged by hidden tests (1.9.7). The method and where Aetox
    loses are in [Measured results](#measured-results)
 5. **Many tools do not mean a full context** — an MCP server with 212 tools costs a 135-token index, and the
    definitions load when they are actually used → [How the system works](#how-the-system-works)
@@ -313,9 +313,9 @@ is out. This CLI is the build the coding benchmark measures.
 
 ### Coding results
 
-On the same models, against OpenCode · Codex CLI · omp · pi over 395 runs, Aetox leads on secure code on both
-models and on long multi-turn coding on GPT-6 Luna. It trails on Web-Bench and on long multi-turn coding on
-GPT-5.6 Terra, and the price is more time and more tokens — the full tables are in [Measured results](#measured-results).
+On the same models against OpenCode · Codex CLI · omp · pi (1.9.7, 461 runs), Aetox leads on secure code on both
+models and passes the most checkpoints in long multi-turn coding on GPT-5.6 Terra; on hard tasks with GPT-6 Sol it
+ties Codex CLI. It trails on Web-Bench, and the price is more time and more tokens — see [Measured results](#measured-results).
 
 ## The Team door
 
@@ -432,65 +432,24 @@ their overview shows separate model choices. Each chat keeps its own selected mo
 The rules are in [BENCHMARK.md](docs/reports/BENCHMARK.md), and the one rule it enforces is that a number that
 has not passed them does not appear here or on the website.
 
-**Latest edition:** [coding-harness-1.9.7](docs/reports/coding-harness-1.9.7/README.md) measures 1.9.7 (4 October 2026);
-the tables below are still the 1.9.3 edition. The run-to-run swing is large: two sets of 1.9.7 rounds differ by
-1.5–2.5 points on SlopCodeBench, so a gap of a few points reads as a tie. Every report, and which edition is current,
-is on [the reports page](docs/reports/README.md).
+**Coding, 1.9.7 (4 October 2026).** Same models and byte-identical tasks as OpenCode · Codex CLI · omp · pi:
+11 tasks × 2 models (`gpt-6-luna`, `gpt-5.6-terra`, medium reasoning) × 3 rounds, every task judged by hidden
+tests, no user skills or settings anywhere. The other harnesses were measured on 27–28 September with the same
+account. What held in every set of rounds:
 
-> **Read this before the numbers.** All coding results come from
-> [the coding-harness-1.9.3 report](docs/reports/coding-harness-1.9.3), which we measured ourselves: 11 tasks ×
-> 2 models × 3 rounds, 395 runs. Every task is judged by hidden tests, every harness receives byte-identical
-> messages, and none carries user skills or settings. The models are `gpt-6-luna` and `gpt-5.6-terra` at medium
-> reasoning, through the same ChatGPT (Codex) account for every harness. Aetox 1.9.3 was measured after the
-> others, so the provider side may have changed during the day. Some suites are small, and this is not a ranking
-> across all work. The method, every round's score, and where Aetox loses are in the full report.
+- **Secure code** — Aetox leads on both models: CWEval func-sec@1 91.1% against 68.9% for the next harness on
+  Luna, 93.3% against 77.8% on Terra
+- **Long multi-turn coding** — second in % tests passed on both models (Luna 90.1%, Terra 92.0%; OpenCode 90.8%
+  and 92.8%) and the most checkpoints fully passed on Terra (7.0 of 14)
+- **Hard tasks on GPT-6 Sol** — DeepSWE 1.1 and Terminal-Bench 2.1 hard, 12 tasks at high reasoning: Aetox 7 ·
+  Codex CLI 7 · OpenCode 6
+- **The price** — more time and more tokens than the others (Terra 76 min against 46–71; about 90% of the tokens
+  are cached input). Against 1.9.3, Terra is faster and cheaper (81 → 76 min, cost −11%)
+- **Where it trails** — Web-Bench, where pi passes more on both models and omp on Terra · the single SWE-bench
+  bug on Luna
 
-These tables describe **1.9.3**. The later [direction study](docs/reports/harness-direction-2026-09-30.md) does
-not establish an overall improvement or a no-regression result for 1.9.4.
-
-Mean of 3 rounds · bold = best in the column for that model
-
-**GPT-6 Luna · medium reasoning**
-
-| Harness | SlopCodeBench<br>% tests passed | SlopCodeBench<br>checkpoints fully passed | SWE-bench ML<br>resolved (1 task) | SWE-bench ML<br>per bug report † | Web-Bench<br>tasks passed | CWEval<br>func-sec@1 | CWEval<br>func@1 | Thai tasks \* | Time<br>(min) | Tokens<br>(M) |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Aetox 1.9.3 | **91.8%** | **4.0 / 14** | 33% | **100%** | 5.0 / 6 | **97.8%** | **97.8%** | **100.0%** | 47 | 5.7 |
-| OpenCode 1.18.32 | 90.8% | 3.7 / 14 | **67%** | **100%** | 4.3 / 6 | 66.7% | 86.7% | 94.1% | 46 | 3.4 |
-| Codex CLI 0.157.1 | 86.9% | 2.3 / 14 | 33% | 67% | 5.0 / 6 | 66.7% | 88.9% | 97.8% | 30 | 2.1 |
-| omp 18.3.4 | 88.7% | 2.3 / 14 | 33% | 67% | 4.5 / 6 | 68.9% | 86.7% | 88.9% | 45 | 4.5 |
-| pi 0.87.1 | 87.8% | 2.3 / 14 | 33% | **100%** | **5.3 / 6** | 64.4% | 86.7% | 94.1% | 29 | 0.8 |
-
-**GPT-5.6 Terra · medium reasoning**
-
-| Harness | SlopCodeBench<br>% tests passed | SlopCodeBench<br>checkpoints fully passed | SWE-bench ML<br>resolved (1 task) | SWE-bench ML<br>per bug report † | Web-Bench<br>tasks passed | CWEval<br>func-sec@1 | CWEval<br>func@1 | Thai tasks \* | Time<br>(min) | Tokens<br>(M) |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Aetox 1.9.3 | 92.2% | 6.0 / 14 | 67% | **100%** | 5.3 / 6 | **95.6%** | **95.6%** | **100.0%** | 81 | 9.1 |
-| OpenCode 1.18.32 | **92.8%** | **6.7 / 14** | 33% | **100%** | 5.0 / 6 | 77.8% | 93.3% | 93.3% | 63 | 5.1 |
-| Codex CLI 0.157.1 | 91.5% | 5.3 / 14 | 67% | **100%** | 5.0 / 6 | 73.3% | 93.3% | 92.6% | 54 | 3.8 |
-| omp 18.3.4 | 86.4% | 5.3 / 14 | 33% | **100%** | **5.7 / 6** | 77.8% | 93.3% | 91.1% | 71 | 7.5 |
-| pi 0.87.1 | 91.3% | 6.0 / 14 | **100%** | **100%** | **5.7 / 6** | 77.8% | 93.3% | 95.6% | 46 | 1.8 |
-
-† SWE-bench ML is a single bug (caddy-6350) × 3 rounds; read it as a weak signal. The "per bug report" column
-uses the same tests minus the `remote_ip` case, leaving only what the bug report asked for · \* tasks written by
-the Aetox team, and Aetox ships a Thai skill; read apart from the standard suites
-
-The report's own summary:
-
-- **Where Aetox leads** — secure code (CWEval func-sec@1) on both models, with functionally correct code
-  (func@1) also highest on both · long multi-turn coding on Luna (SlopCodeBench), highest in % tests passed and
-  checkpoints fully passed · Aetox + Luna matches the others + Terra: SlopCodeBench 91.8% against 91.3–92.8%,
-  and higher security (97.8% against 73.3–77.8%)
-- **Where Aetox trails** — Web-Bench, where pi does slightly better on both models, as does omp on Terra ·
-  SlopCodeBench on Terra, where OpenCode leads in both % tests passed and checkpoints fully passed
-- **The price** — more time and more tokens: total tokens 1.2–7× the others, about 90% of them cached input;
-  the slowest on Terra (81 min against 46–71). Two reasons: Aetox checks its own work more, and its starting
-  prompt carries more rules for working with tools
-- **Not yet conclusive** — SWE-bench is one bug · Web-Bench differs by 1–2 tasks · the SlopCodeBench gap between
-  the leading harnesses is smaller than the spread between rounds
-- **Against 1.9.0** — faster (Luna 64 → 47 min · Terra 88 → 81 min) · better on CWEval security
-  (Luna 91.1 → 97.8% · Terra 93.3 → 95.6%), checkpoints fully passed on Luna (3.0 → 4.0) and SWE-bench per bug
-  report on Luna (67 → 100%) · lower on Web-Bench (Luna 5.7 → 5.0 · Terra 5.7 → 5.3) and SlopCodeBench on Terra
-  (94.3 → 92.2%)
+Rounds swing by 1.5–2.5 points on SlopCodeBench, so a gap of a few points reads as a tie. The tables, every
+round, the method and where Aetox loses are in the reports — start at [the reports page](docs/reports/README.md).
 
 | Other reports | What they measure |
 |:---|:---|

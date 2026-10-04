@@ -40,6 +40,7 @@
 | **ขนาดคู่แข่ง** | `BENCHMARK.md` §4 · `aetox-landing` (`components/Weight.tsx` — ค่า `mb` กับความกว้าง `w`) · README ทั้งสอง (ตาราง Zed) | ลงโปรแกรมจริงแล้ววัดจากโฟลเดอร์ติดตั้ง ([BENCHMARK.md](BENCHMARK.md) ข้อ 5 บอกว่าห้ามนับอะไร) | ✋ |
 | **RAM · เวลาเปิด · จำนวน process** | README ทั้งสอง (แถว ⁽ᵈ⁾) · `BENCHMARK.md` · `aetox-landing` | รีบูตก่อน แล้ว `.\bench.ps1 -Start` | ✋ |
 | **ประกอบหนึ่งเทิร์น** | README ทั้งสอง (ตารางวัด) | `.\bench.ps1 -Engine` | ✋ |
+| **ผลวัดงานโค้ด** (CWEval · SlopCodeBench · ชุดยาก Sol · จำนวนรัน) | README ทั้งสอง (จุดเด่นข้อ 4 · §ผลวัดงานโค้ด · §ผลวัด) · badge ด้านบน README — ตารางเต็มอยู่ในรายงานเท่านั้น README มีแค่สรุปและลิงก์ · **แลนดิ้งเพจไม่มีตัวเลขนี้** | ฉบับล่าสุดตาม[หน้ารวมรายงาน](README.md) · วัดใหม่ด้วย `scripts/behavior-bench.py` (หัวข้อ 5 ของรายงาน) · ตรวจลิงก์ `python scripts/check-report-links.py` | ✋ |
 
 ---
 
