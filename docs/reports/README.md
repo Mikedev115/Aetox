@@ -20,7 +20,7 @@
 | **ความเร็ว แรม ขนาดแอป** | [BENCHMARK.md](BENCHMARK.md) | ต่อเนื่อง | กติกาการวัดและผลเทียบเครื่องมือ AI ตัวอื่นบนเครื่องเดียวกัน |
 | **ค้นคว้าและให้เหตุผล** | [aetox-research-reasoning-evaluation.md](aetox-research-reasoning-evaluation.md) | — | การค้นคว้า ตรวจหลักฐาน และสังเคราะห์ |
 | **เทสต์รายโมดูล** | [TEST-REPORT.md](TEST-REPORT.md) | — | เทสต์ของแต่ละโมดูล และสิ่งที่เทสต์ไม่ได้ตรวจ |
-| **ตรวจการปล่อยรุ่น** | [release-1.9.5-verification.md](release-1.9.5-verification.md) | 2 ต.ค. 2026 | ตรวจแพ็กเกจและด่านปล่อยของรุ่น |
+| **ตรวจการปล่อยรุ่น** | [release-1.9.10-verification.md](release-1.9.10-verification.md) | 6 ต.ค. 2026 | ตรวจแพ็กเกจและด่านปล่อยของรุ่น |
 
 ## ฉบับก่อนหน้า (ถูกแทนแล้ว เก็บไว้ดูย้อนหลัง)
 
@@ -28,6 +28,7 @@
 |---|---|---|
 | [coding-harness-1.9.3](coding-harness-1.9.3/README.md) | coding-harness-1.9.7 | ผลของตัวครอบอื่นในฉบับ 1.9.7 มาจากรอบวัดนี้ |
 | [coding-harness-2026-09-27](coding-harness-2026-09-27/README.md) | coding-harness-1.9.7 | ฉบับ 1.9.0 · มีโจทย์ ต้นทาง และสัญญาอนุญาตของทุกโจทย์ ซึ่งฉบับหลังอ้างถึง |
+| [release-1.9.5-verification.md](release-1.9.5-verification.md) | release-1.9.10-verification | |
 | [release-1.9.4-verification.md](release-1.9.4-verification.md) | release-1.9.5-verification | |
 
 ## นำร่องวิธีวัด
