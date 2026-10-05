@@ -112,6 +112,13 @@ of its files:
 Apache-2.0 asks that changes be marked and the attribution kept; both are in
 the package's own comments as well as here.
 
+### Bundled data
+
+| Path | Upstream | Licence | What was taken, what was changed |
+|:---|:---|:---|:---|
+| `internal/thaiword/thaidict.txt.gz` | [ICU](https://github.com/unicode-org/icu) `icu4c/source/data/brkitr/dictionaries/thaidict.txt` (main, fetched 2026-10-04) | Unicode License V3, © Unicode, Inc. and others; © IBM, Apple Inc. and others | The Thai word list, 26,383 words, with its comment header removed and gzip-compressed; read by the word segmenter that cuts subtitle lines and cuts in the cut room between words. The licence and the removed header's copyright lines are in [internal/thaiword/LICENSE](internal/thaiword/LICENSE). |
+| `internal/tts/cmudict.txt.gz` | [CMU Pronouncing Dictionary](https://github.com/cmusphinx/cmudict) `cmudict.dict` (master, fetched 2026-10-05) | BSD-2-Clause, © 1993-2015 Carnegie Mellon University | Cut to the 117,493 words spelled with a-z only, each with its first pronunciation, sorted and gzip-compressed; read by the reading-aloud layer to write an English word a Thai voice does not know in Thai letters. The licence is in [internal/tts/CMUDICT-LICENSE](internal/tts/CMUDICT-LICENSE). |
+
 ---
 
 ## Frontend packages

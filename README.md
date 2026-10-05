@@ -814,22 +814,17 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.9
+## Status — v1.9.10
 
-The core is in place. [This release](docs/release-notes/v1.9.9.md), 4 October 2026, brings:
+The core is in place. [This release](docs/release-notes/v1.9.10.md), 6 October 2026, brings:
 
-- **Updating from inside the app no longer loops back to the old build**: the installer moves the old
-  `aetox.exe` aside before writing the new one, and when it still cannot, it says so instead of reporting success.
-
-[1.9.8](docs/release-notes/v1.9.8.md), the same day, brought:
-
-- **Pictures, files and helpers stay with their own chat**: a picture one chat just drew no longer shows as a
-  broken icon from another pane or while another chat works, a coding chat's helper no longer appears under the
-  assistant's answer, and a chat working in the background writes its new files into its own folder.
-- **The agent only says the user can see what is true**: `desk_open` now knows whether the chat is on screen and
-  whether the right panel is closed, so the model puts the picture in its answer when the person cannot see it.
-- **A clearer front page**: Aetox is described as a Windows-native agent harness, with Code as the flagship use
-  case, and "UI" in a game chat is answered with code rather than a drawing.
+- **An editable cut room**: the agent and the person work on the same `.cut` file, with a multi-track timeline,
+  live playback, editable captions, clip properties, transitions, titles, keyframes and export settings.
+- **Prompt presets for each desk**: the assistant, code and secretary desks have their own empty-chat starters,
+  a shared slash menu and glass-style design recipes with a bundled component catalogue.
+- **Clearer Thai speech and an easier PowerPoint connection**: reading aloud handles English words in Thai answers,
+  local transcription falls back to CPU when CUDA fails, and the MCP shelf offers a PowerPoint preset for Windows
+  with desktop PowerPoint installed. It adds the server only, not Office or the upstream skill.
 
 **Next** — a provider chain that switches accounts when a plan window runs out · external agent programs as
 engines · a personal secretary connected to Google through the user's own Apps Script bridge · RAM measured under
