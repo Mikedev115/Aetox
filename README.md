@@ -814,9 +814,11 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.10
+## Status — v1.9.11
 
-The core is in place. [This release](docs/release-notes/v1.9.10.md), 6 October 2026, brings:
+The core is in place. [Version 1.9.11](docs/release-notes/v1.9.11.md), 6 October 2026, adds clickable file paths in answers and search results, careful image/PDF attempts for models with unknown capabilities, clearer delegate updates, and browser reliability fixes.
+
+[Version 1.9.10](docs/release-notes/v1.9.10.md), 6 October 2026, brings:
 
 - **An editable cut room**: the agent and the person work on the same `.cut` file, with a multi-track timeline,
   live playback, editable captions, clip properties, transitions, titles, keyframes and export settings.
