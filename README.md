@@ -360,7 +360,7 @@ own seat in the team, and the team's rules reach everyone in it.
   row to open the full work in the right panel.
 - **Deliverables are real files** — in the team's folder or the focused project, and they show up as cards in
   the secretary's answer.
-- **The company room** — the right panel is a 3D office with a campus or tower map (a 2.5D room on machines
+- **The company room** — a 3D office opened from the company card in the Workroom (or Mission Control), with a campus or tower map (a 2.5D room on machines
   without WebGL). Each agent sits at a desk and moves with the tool it is using, heads have their own desks and
   ranks, finished work is carried off to delivery, time of day follows your clock, and a board shows done today
   · working · waiting on you.
@@ -814,9 +814,11 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.13
+## Status — v1.9.14
 
-The core is in place. [Version 1.9.13](docs/release-notes/v1.9.13.md), 6 October 2026, stops full access from asking before the agent reaches a folder outside the project (the folder is added to the list on its own) and drops the automatic "tool X keeps failing" cards.
+The core is in place. [Version 1.9.14](docs/release-notes/v1.9.14.md), 6 October 2026, gives each door's empty side panel a look of its own — a faint city of code behind Code, a desk behind Assistant, the company behind Team — and redraws Team's Workroom on it, with a company card that opens the company room and the Mission Control port card beside it.
+
+[Version 1.9.13](docs/release-notes/v1.9.13.md), 6 October 2026, stops full access from asking before the agent reaches a folder outside the project (the folder is added to the list on its own) and drops the automatic "tool X keeps failing" cards.
 
 [Version 1.9.12](docs/release-notes/v1.9.12.md), 6 October 2026, ships the unreleased 1.9.11 (clickable file paths in answers and search results, careful image/PDF attempts for models with unknown capabilities, clearer delegate updates, browser reliability fixes) and makes Telegram and Discord chats use the model you picked last.
 
