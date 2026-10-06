@@ -814,9 +814,11 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.12
+## Status — v1.9.13
 
-The core is in place. [Version 1.9.12](docs/release-notes/v1.9.12.md), 6 October 2026, ships the unreleased 1.9.11 (clickable file paths in answers and search results, careful image/PDF attempts for models with unknown capabilities, clearer delegate updates, browser reliability fixes) and makes Telegram and Discord chats use the model you picked last.
+The core is in place. [Version 1.9.13](docs/release-notes/v1.9.13.md), 6 October 2026, stops full access from asking before the agent reaches a folder outside the project (the folder is added to the list on its own) and drops the automatic "tool X keeps failing" cards.
+
+[Version 1.9.12](docs/release-notes/v1.9.12.md), 6 October 2026, ships the unreleased 1.9.11 (clickable file paths in answers and search results, careful image/PDF attempts for models with unknown capabilities, clearer delegate updates, browser reliability fixes) and makes Telegram and Discord chats use the model you picked last.
 
 [Version 1.9.10](docs/release-notes/v1.9.10.md), 6 October 2026, brings:
 
