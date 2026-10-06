@@ -814,9 +814,9 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.11
+## Status — v1.9.12
 
-The core is in place. [Version 1.9.11](docs/release-notes/v1.9.11.md), 6 October 2026, adds clickable file paths in answers and search results, careful image/PDF attempts for models with unknown capabilities, clearer delegate updates, and browser reliability fixes.
+The core is in place. [Version 1.9.12](docs/release-notes/v1.9.12.md), 6 October 2026, ships the unreleased 1.9.11 (clickable file paths in answers and search results, careful image/PDF attempts for models with unknown capabilities, clearer delegate updates, browser reliability fixes) and makes Telegram and Discord chats use the model you picked last.
 
 [Version 1.9.10](docs/release-notes/v1.9.10.md), 6 October 2026, brings:
 
