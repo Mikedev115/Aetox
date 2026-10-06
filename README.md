@@ -814,9 +814,9 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.15
+## Status — v1.9.16
 
-The core is in place. [Version 1.9.15](docs/release-notes/v1.9.15.md), 6 October 2026, makes a team that was never appointed say so and say where to appoint it (instead of the secretary looping for six minutes), turns the Code and Assistant empty side panels into windows that show real work — code typing in an editor, an assistant searching, filing and building slides — and lets the Code desk read text out of project images.
+The core is in place. [Version 1.9.16](docs/release-notes/v1.9.16.md), 6 October 2026, makes a team that was never appointed say so and say where to appoint it (instead of the secretary looping for six minutes), turns the Code and Assistant empty side panels into windows that show real work — code typing in an editor, an assistant searching, filing and building slides — and lets the Code desk read text out of project images.
 
 The core is in place. [Version 1.9.14](docs/release-notes/v1.9.14.md), 6 October 2026, gives each door's empty side panel a look of its own — a faint city of code behind Code, a desk behind Assistant, the company behind Team — and redraws Team's Workroom on it, with a company card that opens the company room and the Mission Control port card beside it.
 
