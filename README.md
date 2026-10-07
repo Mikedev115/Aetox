@@ -814,16 +814,9 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.18
+## Status — v1.9.17
 
-[Version 1.9.18](docs/release-notes/v1.9.18.md), 8 October 2026, brings:
-
-- **Visible context compaction**: progress and cancellation, with project context accounted for separately and clearer context estimates.
-- **Files in the knowledge map**: expand folders and preview linked knowledge files without changing the originals.
-- **Session continuity**: switching chats suspends browser and terminal views instead of closing them, while long chat histories draw a bounded window.
-- **More focused agent guidance**: revised design skills, clearer task boundaries and a 21st.dev MCP preset.
-
-### Previously — v1.9.17
+The [v1.9.18 draft](docs/release-notes/v1.9.18.md) is not released. Its workflow was cancelled before the test gate completed; v1.9.17 remains the latest published release.
 
 [Version 1.9.17](docs/release-notes/v1.9.17.md), 7 October 2026, brings:
 
