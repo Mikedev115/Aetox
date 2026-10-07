@@ -476,18 +476,18 @@ round, the method and where Aetox loses are in the reports — start at [the rep
 | [PUBLISHED-NUMBERS.md](docs/reports/PUBLISHED-NUMBERS.md) | Where every published number appears, and where it was measured |
 
 <details>
-<summary>The app's own numbers — 1.9.5 package sizes and dated runtime figures</summary>
+<summary>The app's own numbers — 1.9.17 package sizes and dated runtime figures</summary>
 
-**1.9.10 packages, measured 2026-10-06.** SHA-256 and the release signature were checked; the Store package's
-executables match the portable package. MiB is bytes / 1,048,576. See the [package report](docs/reports/release-1.9.10-verification.md).
+**1.9.17 packages, measured 7 October 2026.** SHA-256 was checked against `checksums.txt` for all six packages and both app executables; the CI signing step passed. The Store and portable app executables match, and the CLI engine matches. MiB is bytes / 1,048,576. Sizes are rounded separately; the total is calculated from bytes before rounding.
+See the [package measurement history](docs/reports/BENCHMARK.md#13-ประวัติการวัด).
 
 | Package | Size |
 |:---|---:|
-| App on disk, two executables | **112.3 MiB** (window 65.7 + engine 46.6) |
-| App installer | **43.6 MiB** |
-| Portable app | 42.7 MiB |
-| CLI installer / portable | 28.2 / 38.4 MiB |
-| Microsoft Store package | 44.2 MiB · version 1.9.10.0 |
+| App on disk, two executables | **112.7 MiB** (window 65.9 + engine 46.9) |
+| App installer | **43.8 MiB** |
+| Portable app | 42.9 MiB |
+| CLI installer / portable | 28.3 / 38.6 MiB |
+| Microsoft Store package | 44.3 MiB · version 1.9.17.0 |
 
 **Historical measurements below.**
 
