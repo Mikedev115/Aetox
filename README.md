@@ -814,9 +814,15 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.16
+## Status — v1.9.17
 
-The core is in place. [Version 1.9.16](docs/release-notes/v1.9.16.md), 6 October 2026, makes a team that was never appointed say so and say where to appoint it (instead of the secretary looping for six minutes), turns the Code and Assistant empty side panels into windows that show real work — code typing in an editor, an assistant searching, filing and building slides — and lets the Code desk read text out of project images.
+[Version 1.9.17](docs/release-notes/v1.9.17.md), 7 October 2026, brings:
+
+- **A personal knowledge archive in About You**: daily work notes by desk, learned working preferences, filters and a map linking desks and projects, with read-only access to a knowledge folder you choose.
+- **Mission Control through Cloudflare Tunnel**: access from outside the home network through your configured domain; every device still has to pair before use.
+- **Clearer communication while working**: silence reminders and a runtime guard that pauses unstarted tool groups when you interrupt, so the agent can answer before continuing.
+
+It also includes the unreleased v1.9.16 changes: clearer guidance for teams not yet appointed, illustrative Code and Assistant empty panels, and text extraction from project images on the Code desk.
 
 The core is in place. [Version 1.9.14](docs/release-notes/v1.9.14.md), 6 October 2026, gives each door's empty side panel a look of its own — a faint city of code behind Code, a desk behind Assistant, the company behind Team — and redraws Team's Workroom on it, with a company card that opens the company room and the Mission Control port card beside it.
 
