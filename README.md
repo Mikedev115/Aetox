@@ -818,11 +818,9 @@ mistake turns an agent into a chat box.
 
 [Version 1.9.19](docs/release-notes/v1.9.19.md), 8 October 2026, brings:
 
-- **English prompt bodies in all 72 bundled presets**: localized card metadata, invocation arguments and user-authored overrides remain intact.
-- **Visible context compaction**: progress and cancellation, with project context accounted for separately and clearer context estimates.
-- **Files in the knowledge map**: expand folders and preview linked knowledge files without changing the originals.
-- **Session continuity**: switching chats suspends browser and terminal views instead of closing them, while long chat histories draw a bounded window.
-- **More focused agent guidance**: revised design skills, clearer task boundaries and a 21st.dev MCP preset.
+- **Response statistics and Claude caching**: first-token, streaming and total timing in the composer; explicit Claude prompt caching through OpenRouter.
+- **English prompt bodies in all 72 bundled presets**: localized metadata and user overrides stay intact, with visible, cancellable context compaction and linked-file previews in the knowledge map.
+- **Session continuity and clearer layers**: switching chats preserves browser and terminal sessions, long histories draw a bounded window, and the companion stays above the composer when menus are closed.
 
 ### Previously — v1.9.17
 
