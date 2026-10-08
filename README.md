@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/assets/logo.png" alt="Aetox" width="110">
+  <img src="docs/assets/logo.png" alt="Aetox Harness" width="110">
 </p>
 
-<h1 align="center">Aetox</h1>
+<h1 align="center">Aetox Harness</h1>
 
 <p align="center">
   <strong>A Windows-native agent harness — Assistant · Code desk · Agent teams are three surfaces of one system that does the work on your machine</strong>
@@ -47,7 +47,7 @@ Scoop, portable zip and SmartScreen notes in [Install](#install) · every other 
 
 ## One harness, three surfaces
 
-**Aetox is a Windows-native agent harness:** the system around a model that supplies tools, a workspace,
+**Aetox Harness is a Windows-native agent harness:** the system around a model that supplies tools, a workspace,
 permissions, memory, and a verification loop so it can do real work rather than only generate an answer.
 
 | If you want | Open the surface | Aetox gives you |
@@ -814,9 +814,17 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.17
+## Status — v1.9.19
 
-The [v1.9.18 draft](docs/release-notes/v1.9.18.md) is not released. Its workflow was cancelled before the test gate completed; v1.9.17 remains the latest published release.
+[Version 1.9.19](docs/release-notes/v1.9.19.md), 8 October 2026, brings:
+
+- **English prompt bodies in all 72 bundled presets**: localized card metadata, invocation arguments and user-authored overrides remain intact.
+- **Visible context compaction**: progress and cancellation, with project context accounted for separately and clearer context estimates.
+- **Files in the knowledge map**: expand folders and preview linked knowledge files without changing the originals.
+- **Session continuity**: switching chats suspends browser and terminal views instead of closing them, while long chat histories draw a bounded window.
+- **More focused agent guidance**: revised design skills, clearer task boundaries and a 21st.dev MCP preset.
+
+### Previously — v1.9.17
 
 [Version 1.9.17](docs/release-notes/v1.9.17.md), 7 October 2026, brings:
 
