@@ -814,7 +814,15 @@ mistake turns an agent into a chat box.
 
 </details>
 
-## Status — v1.9.19
+## Status — v1.9.20
+
+[Version 1.9.20](docs/release-notes/v1.9.20.md), 10 October 2026, brings:
+
+- **Coding sessions on an external CLI engine**: Claude Code, OpenCode and Antigravity run through the same tool executor and approval gate as native tools.
+- **Smarter Telegram and Discord bots**: a model, thinking level and route per connection; files in and out, answer buttons, and pairing locked per user.
+- **Talking-head video, a live brain map and a paged About You**: a portrait plus speech becomes a video; the map blooms, fits and follows the pointer; linked knowledge folders read as one file tree.
+
+### Previously — v1.9.19
 
 [Version 1.9.19](docs/release-notes/v1.9.19.md), 8 October 2026, brings:
 
